@@ -442,6 +442,44 @@ const EmployeeDetail = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
+                label="Mobile"
+                required
+                value={editFormData.mobile || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, mobile: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="ID Card Number"
+                required
+                value={editFormData.idCardNumber || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, idCardNumber: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Birth Date"
+                type="date"
+                required
+                InputLabelProps={{ shrink: true }}
+                value={editFormData.birthDate || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, birthDate: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Emergency Contact"
+                required
+                value={editFormData.emergencyContact || ''}
+                onChange={(e) => setEditFormData({ ...editFormData, emergencyContact: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
                 label="Position"
                 value={editFormData.position || ''}
                 onChange={(e) => setEditFormData({ ...editFormData, position: e.target.value })}
@@ -461,6 +499,7 @@ const EmployeeDetail = () => {
                 label="Address"
                 multiline
                 rows={2}
+                required
                 value={editFormData.address || ''}
                 onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })}
               />

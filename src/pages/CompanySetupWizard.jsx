@@ -38,6 +38,7 @@ const CompanySetupWizard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeStep, setActiveStep] = useState(0);
+  const [hrCredentials, setHrCredentials] = useState(null);
   
   // Company information
   const [companyInfo, setCompanyInfo] = useState({
@@ -81,6 +82,9 @@ const CompanySetupWizard = () => {
     { label: 'Settings', icon: <SettingsIcon /> },
     { label: 'Complete', icon: <CheckCircleIcon /> }
   ];
+  
+  // Adjust steps based on whether we're showing credentials
+  const displaySteps = hrCredentials ? [...steps, { label: 'HR Credentials', icon: <CheckCircleIcon /> }] : steps;
 
   const countries = [
     { code: 'TR', name: 'Turkey', flag: '🇹🇷' },
@@ -205,14 +209,14 @@ const CompanySetupWizard = () => {
         settings
       };
 
-      await api.post('/api/company/setup', setupData);
+      const response = await api.post('/companies/setup', setupData);
       
-      navigate('/dashboard', { 
-        state: { 
-          message: 'Company setup completed successfully!',
-          showWelcome: true 
-        }
-      });
+      if (response.data && response.data.data) {
+        setHrCredentials(response.data.data);
+        setActiveStep(activeStep + 1); // Move to credentials display step
+      } else {
+        setError('Setup completed but HR credentials not received.');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Setup failed. Please try again.');
     } finally {
@@ -493,44 +497,122 @@ const CompanySetupWizard = () => {
     </Box>
   );
 
-  const renderComplete = () => (
-    <Box>
-      <Typography variant="h6" gutterBottom>Setup Complete!</Typography>
-      <Typography variant="body1" sx={{ mb: 3 }}>
-        Your company has been configured successfully. You can now start adding employees and managing your workforce.
-      </Typography>
-      
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Card>
+  const renderComplete = () => {
+    if (hrCredentials) {
+      return (
+        <Box>
+          <Typography variant="h5" gutterBottom sx={{ color: 'success.main', fontWeight: 600 }}>
+            Setup Complete! 🎉
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 4 }}>
+            Your company has been configured successfully. An HR account has been created for you to share with the company.
+          </Typography>
+          
+          <Alert severity="info" sx={{ mb: 4 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              <strong>Important:</strong> Please save these HR account credentials. You can share them with the company so their HR can manage employees and all processes.
+            </Typography>
+          </Alert>
+          
+          <Card sx={{ mb: 3, border: '2px solid', borderColor: 'primary.main' }}>
             <CardContent>
-              <Typography variant="subtitle1" gutterBottom>Company Information</Typography>
-              <Typography variant="body2">{companyInfo.name}</Typography>
-              <Typography variant="body2">{companyInfo.email}</Typography>
-              <Typography variant="body2">{companyInfo.phone}</Typography>
+              <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+                HR Account Credentials
+              </Typography>
+              <Divider sx={{ my: 2 }} />
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="text.secondary">Company:</Typography>
+                  <Typography variant="body1" fontWeight={500}>{hrCredentials.companyName}</Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="text.secondary">HR Name:</Typography>
+                  <Typography variant="body1" fontWeight={500}>
+                    {hrCredentials.hrFirstName} {hrCredentials.hrLastName}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="text.secondary">Email:</Typography>
+                  <Typography variant="body1" fontWeight={500} sx={{ fontFamily: 'monospace' }}>
+                    {hrCredentials.hrEmail}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="text.secondary">Password:</Typography>
+                  <Typography variant="body1" fontWeight={500} sx={{ fontFamily: 'monospace', color: 'error.main' }}>
+                    {hrCredentials.hrPassword}
+                  </Typography>
+                </Grid>
+              </Grid>
             </CardContent>
           </Card>
+          
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => {
+                // Copy credentials to clipboard
+                const text = `HR Account Credentials\n\nCompany: ${hrCredentials.companyName}\nEmail: ${hrCredentials.hrEmail}\nPassword: ${hrCredentials.hrPassword}`;
+                navigator.clipboard.writeText(text);
+                alert('Credentials copied to clipboard!');
+              }}
+            >
+              Copy Credentials
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/companies')}
+            >
+              Go to Company Management
+            </Button>
+          </Box>
+        </Box>
+      );
+    }
+    
+    return (
+      <Box>
+        <Typography variant="h6" gutterBottom>Setup Complete!</Typography>
+        <Typography variant="body1" sx={{ mb: 3 }}>
+          Your company has been configured successfully. You can now start adding employees and managing your workforce.
+        </Typography>
+        
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="subtitle1" gutterBottom>Company Information</Typography>
+                <Typography variant="body2">{companyInfo.name}</Typography>
+                <Typography variant="body2">{companyInfo.email}</Typography>
+                <Typography variant="body2">{companyInfo.phone}</Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Typography variant="subtitle1" gutterBottom>Departments</Typography>
+                {departments.map((dept, index) => (
+                  <Typography key={index} variant="body2">• {dept.name}</Typography>
+                ))}
+              </CardContent>
+            </Card>
+          </Grid>
         </Grid>
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle1" gutterBottom>Departments</Typography>
-              {departments.map((dept, index) => (
-                <Typography key={index} variant="body2">• {dept.name}</Typography>
-              ))}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-    </Box>
-  );
+      </Box>
+    );
+  };
 
   const getStepContent = (step) => {
+    if (hrCredentials && step === 4) {
+      return renderComplete();
+    }
     switch (step) {
       case 0: return renderCompanyInfo();
       case 1: return renderDepartments();
       case 2: return renderSettings();
-      case 3: return renderComplete();
+      case 3: return hrCredentials ? renderComplete() : 'Review your setup';
       default: return 'Unknown step';
     }
   };
@@ -542,7 +624,7 @@ const CompanySetupWizard = () => {
       </Typography>
       
       <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-        {steps.map((step, index) => (
+        {(hrCredentials ? displaySteps : steps).map((step, index) => (
           <Step key={step.label}>
             <StepLabel icon={step.icon}>{step.label}</StepLabel>
           </Step>
@@ -566,15 +648,24 @@ const CompanySetupWizard = () => {
             Back
           </Button>
           
-          {activeStep === steps.length - 1 ? (
-            <Button
-              variant="contained"
-              onClick={handleComplete}
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={20} /> : <CheckCircleIcon />}
-            >
-              {loading ? 'Completing...' : 'Complete Setup'}
-            </Button>
+          {activeStep === (hrCredentials ? displaySteps.length - 1 : steps.length - 1) ? (
+            hrCredentials ? (
+              <Button
+                variant="contained"
+                onClick={() => navigate('/companies')}
+              >
+                Go to Company Management
+              </Button>
+            ) : (
+              <Button
+                variant="contained"
+                onClick={handleComplete}
+                disabled={loading}
+                startIcon={loading ? <CircularProgress size={20} /> : <CheckCircleIcon />}
+              >
+                {loading ? 'Completing...' : 'Complete Setup'}
+              </Button>
+            )
           ) : (
             <Button
               variant="contained"

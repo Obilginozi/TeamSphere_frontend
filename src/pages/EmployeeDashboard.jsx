@@ -31,9 +31,12 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
+import dayjs from 'dayjs'
+import 'dayjs/locale/tr'
+import 'dayjs/locale/en'
 
 const EmployeeDashboard = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -64,17 +67,82 @@ const EmployeeDashboard = () => {
       setLoading(true)
       setError(null)
 
-      const [statsRes, attendanceRes, leavesRes, announcementsRes] = await Promise.all([
-        api.get('/api/employee/dashboard/stats').catch(() => ({ data: { data: {} } })),
-        api.get('/api/attendance/my-recent').catch(() => ({ data: { data: [] } })),
-        api.get('/api/leave-requests/my-upcoming').catch(() => ({ data: { data: [] } })),
-        api.get('/api/announcements/active').catch(() => ({ data: { data: [] } }))
-      ])
+      // Get current date range for stats (this week and this month)
+      const now = new Date()
+      const startOfWeek = new Date(now)
+      startOfWeek.setDate(now.getDate() - now.getDay()) // Start of week (Sunday)
+      startOfWeek.setHours(0, 0, 0, 0)
+      
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
+        const [statsRes, historyRes, leavesRes, announcementsRes] = await Promise.all([
+          api.get('/time-logs/my-stats', {
+            params: {
+              startDate: startOfMonth.toISOString().split('T')[0],
+              endDate: endOfMonth.toISOString().split('T')[0]
+            }
+          }).catch((err) => {
+            // Only log if it's not an "employee not found" error
+            const errorMessage = err.response?.data?.message || err.message || ''
+            if (!errorMessage.includes('Employee record not found')) {
+              console.error('Failed to fetch time log stats:', err)
+            }
+            return { data: { data: {} } }
+          }),
+          api.get('/time-logs/my-history', {
+            params: { page: 0, size: 5 }
+          }).catch((err) => {
+            // Only log if it's not an "employee not found" error
+            const errorMessage = err.response?.data?.message || err.message || ''
+            if (!errorMessage.includes('Employee record not found')) {
+              console.error('Failed to fetch time log history:', err)
+            }
+            return { data: { data: { content: [] } } }
+          }),
+          api.get('/leave-requests/my').catch(() => ({ data: { data: [] } })),
+          api.get('/announcements/active').catch(() => ({ data: { data: [] } }))
+        ])
+
+      // Calculate week stats from history
+      const allHistory = historyRes.data.data?.content || []
+      const weekStart = new Date(startOfWeek)
+      const weekHistory = allHistory.filter(log => {
+        const logDate = new Date(log.logDate)
+        return logDate >= weekStart
+      })
+      const weekHours = weekHistory.reduce((sum, log) => {
+        return sum + (log.totalWorkingHours || 0)
+      }, 0)
+
+      // Get pending leave requests
+      const allLeaves = leavesRes.data.data || []
+      const pendingLeaves = allLeaves.filter(leave => leave.status === 'PENDING')
+      const upcomingLeaves = allLeaves.filter(leave => 
+        leave.status === 'APPROVED' && new Date(leave.startDate) >= new Date()
+      )
+
+      // Get leave balance from employee data
+      const employeeRes = await api.get('/employee/me').catch(() => ({ data: { data: {} } }))
+      const leaveBalance = employeeRes.data.data?.annualLeaveBalance || 0
 
       setDashboardData({
-        stats: statsRes.data.data || {},
-        recentAttendance: attendanceRes.data.data || [],
-        upcomingLeaves: leavesRes.data.data || [],
+        stats: {
+          totalHoursThisWeek: Math.round(weekHours * 100) / 100,
+          totalHoursThisMonth: statsRes.data.data?.totalHours || 0,
+          leaveBalance: leaveBalance,
+          upcomingLeaves: upcomingLeaves.length,
+          pendingRequests: pendingLeaves.length
+        },
+        recentAttendance: allHistory.map(log => ({
+          id: log.id,
+          date: log.logDate,
+          clockIn: log.checkInTime,
+          clockOut: log.checkOutTime,
+          totalHours: log.totalWorkingHours,
+          status: log.status
+        })),
+        upcomingLeaves: upcomingLeaves.slice(0, 5),
         announcements: announcementsRes.data.data || []
       })
     } catch (err) {
@@ -87,21 +155,42 @@ const EmployeeDashboard = () => {
 
   const checkClockStatus = async () => {
     try {
-      const response = await api.get('/api/attendance/clock-status')
+      const response = await api.get('/time-logs/my-clock-status')
       setClockedIn(response.data.data?.clockedIn || false)
     } catch (err) {
-      console.error('Failed to check clock status:', err)
+      // Only log error if it's not an "employee not found" error
+      const errorMessage = err.response?.data?.message || err.message || ''
+      if (!errorMessage.includes('Employee record not found')) {
+        console.error('Failed to check clock status:', err)
+      }
+      setClockedIn(false)
     }
   }
 
   const handleClockIn = async () => {
     try {
       setClockingIn(true)
-      await api.post('/api/attendance/clock-in')
+      setError(null)
+      await api.post('/time-logs/my-clock-in')
       setClockedIn(true)
       await fetchDashboardData()
+      await checkClockStatus()
     } catch (err) {
-      setError('Failed to clock in. Please try again.')
+      // Get error message from response
+      let errorMessage = 'Failed to clock in. Please try again.'
+      if (err.response?.data) {
+        // Try different possible error message locations
+        errorMessage = err.response.data.message || 
+                      err.response.data.error || 
+                      err.response.data.data?.message ||
+                      errorMessage
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      setError(errorMessage)
+      console.error('Clock in error:', err)
+      console.error('Error response:', err.response?.data)
+      console.error('Error message:', errorMessage)
     } finally {
       setClockingIn(false)
     }
@@ -110,11 +199,14 @@ const EmployeeDashboard = () => {
   const handleClockOut = async () => {
     try {
       setClockingIn(true)
-      await api.post('/api/attendance/clock-out')
+      setError(null)
+      await api.post('/time-logs/my-clock-out')
       setClockedIn(false)
       await fetchDashboardData()
+      await checkClockStatus()
     } catch (err) {
-      setError('Failed to clock out. Please try again.')
+      setError(t('employeeDashboard.failedToClockOut'))
+      console.error('Clock out error:', err)
     } finally {
       setClockingIn(false)
     }
@@ -159,10 +251,10 @@ const EmployeeDashboard = () => {
       <Box mb={4} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
         <Box>
           <Typography variant="h4" gutterBottom>
-            Welcome, {user?.firstName || 'Employee'}!
+            {t('employeeDashboard.welcome')}, {user?.firstName || t('roles.employee')}!
           </Typography>
           <Typography variant="body2" color="textSecondary">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            {dayjs().locale(i18n.language === 'tr' ? 'tr' : 'en').format('dddd, D MMMM YYYY')}
           </Typography>
         </Box>
         <Box display="flex" gap={2}>
@@ -172,7 +264,7 @@ const EmployeeDashboard = () => {
             onClick={fetchDashboardData}
             disabled={loading}
           >
-            Refresh
+            {t('common.refresh')}
           </Button>
           {clockedIn ? (
             <Button
@@ -183,7 +275,7 @@ const EmployeeDashboard = () => {
               disabled={clockingIn}
               size="large"
             >
-              Clock Out
+              {t('timeLogs.checkOut')}
             </Button>
           ) : (
             <Button
@@ -194,7 +286,7 @@ const EmployeeDashboard = () => {
               disabled={clockingIn}
               size="large"
             >
-              Clock In
+              {t('timeLogs.checkIn')}
             </Button>
           )}
         </Box>
@@ -209,7 +301,7 @@ const EmployeeDashboard = () => {
       {/* Clock Status Alert */}
       {clockedIn && (
         <Alert severity="success" sx={{ mb: 3 }}>
-          You are currently clocked in. Don't forget to clock out when you're done for the day!
+          {t('employeeDashboard.currentlyClockedIn')}
         </Alert>
       )}
 
@@ -217,16 +309,16 @@ const EmployeeDashboard = () => {
       <Grid container spacing={3} mb={4}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Hours This Week"
+            title={t('employeeDashboard.hoursThisWeek')}
             value={`${dashboardData.stats.totalHoursThisWeek || 0}h`}
             icon={<AccessTimeIcon />}
             color="#1976d2"
-            subtitle="Target: 40 hours"
+            subtitle={t('employeeDashboard.targetHours', { hours: 40 })}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Hours This Month"
+            title={t('employeeDashboard.hoursThisMonth')}
             value={`${dashboardData.stats.totalHoursThisMonth || 0}h`}
             icon={<TrendingUpIcon />}
             color="#4caf50"
@@ -234,15 +326,15 @@ const EmployeeDashboard = () => {
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Leave Balance"
-            value={`${dashboardData.stats.leaveBalance || 0} days`}
+            title={t('employeeDashboard.leaveBalance')}
+            value={`${dashboardData.stats.leaveBalance || 0} ${t('common.days')}`}
             icon={<EventIcon />}
             color="#ff9800"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Pending Requests"
+            title={t('employeeDashboard.pendingRequests')}
             value={dashboardData.stats.pendingRequests || 0}
             icon={<AssignmentIcon />}
             color="#9c27b0"
@@ -257,19 +349,19 @@ const EmployeeDashboard = () => {
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="h6">
-                  Recent Attendance
+                  {t('employeeDashboard.recentAttendance')}
                 </Typography>
                 <Button
                   size="small"
                   onClick={() => navigate('/time-logs')}
                 >
-                  View All
+                  {t('common.viewAll')}
                 </Button>
               </Box>
               <Divider sx={{ mb: 2 }} />
               {dashboardData.recentAttendance.length === 0 ? (
                 <Typography color="textSecondary" align="center" py={3}>
-                  No attendance records yet
+                  {t('employeeDashboard.noAttendanceRecordsYet')}
                 </Typography>
               ) : (
                 <List>
@@ -277,10 +369,10 @@ const EmployeeDashboard = () => {
                     <ListItem key={record.id} divider>
                       <ListItemText
                         primary={new Date(record.date).toLocaleDateString()}
-                        secondary={`${record.clockIn || 'N/A'} - ${record.clockOut || 'In Progress'} • ${record.totalHours || 0}h`}
+                        secondary={`${record.clockIn || t('common.notAvailable')} - ${record.clockOut || t('timeLogs.inProgress')} • ${record.totalHours || 0}h`}
                       />
                       <Chip
-                        label={record.status || 'PRESENT'}
+                        label={record.status || t('employeeDashboard.present')}
                         color={record.status === 'PRESENT' ? 'success' : 'default'}
                         size="small"
                       />
@@ -298,30 +390,30 @@ const EmployeeDashboard = () => {
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="h6">
-                  Upcoming Leaves
+                  {t('employeeDashboard.upcomingLeaves')}
                 </Typography>
                 <Button
                   size="small"
                   onClick={() => navigate('/leave-requests')}
                 >
-                  Request Leave
+                  {t('leaveRequests.requestLeave')}
                 </Button>
               </Box>
               <Divider sx={{ mb: 2 }} />
               {dashboardData.upcomingLeaves.length === 0 ? (
                 <Typography color="textSecondary" align="center" py={3}>
-                  No upcoming leaves
+                  {t('employeeDashboard.noUpcomingLeaves')}
                 </Typography>
               ) : (
                 <List>
                   {dashboardData.upcomingLeaves.map((leave) => (
                     <ListItem key={leave.id} divider>
                       <ListItemText
-                        primary={leave.leaveType}
-                        secondary={`${leave.startDate} to ${leave.endDate} • ${leave.days} days`}
+                        primary={leave.leaveType || t('leaveRequests.leaveType')}
+                        secondary={`${leave.startDate ? new Date(leave.startDate).toLocaleDateString() : t('common.notAvailable')} ${t('common.to')} ${leave.endDate ? new Date(leave.endDate).toLocaleDateString() : t('common.notAvailable')} • ${leave.totalDays || 0} ${t('common.days')}`}
                       />
                       <Chip
-                        label={leave.status}
+                        label={leave.status || t('leaveRequests.approved')}
                         color={leave.status === 'APPROVED' ? 'success' : 'warning'}
                         size="small"
                       />
@@ -338,12 +430,12 @@ const EmployeeDashboard = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Company Announcements 📢
+                {t('employeeDashboard.companyAnnouncements')}
               </Typography>
               <Divider sx={{ mb: 2 }} />
               {dashboardData.announcements.length === 0 ? (
                 <Typography color="textSecondary" align="center" py={3}>
-                  No announcements at this time
+                  {t('employeeDashboard.noAnnouncementsAtThisTime')}
                 </Typography>
               ) : (
                 <Grid container spacing={2}>
@@ -357,7 +449,7 @@ const EmployeeDashboard = () => {
                           {announcement.content}
                         </Typography>
                         <Typography variant="caption" color="textSecondary">
-                          Posted: {new Date(announcement.createdAt).toLocaleDateString()}
+                          {t('employeeDashboard.posted')}: {new Date(announcement.createdAt).toLocaleDateString()}
                         </Typography>
                       </Paper>
                     </Grid>
@@ -369,28 +461,6 @@ const EmployeeDashboard = () => {
         </Grid>
       </Grid>
 
-      {/* Quick Actions */}
-      <Box mt={3}>
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Quick Actions
-          </Typography>
-          <Box display="flex" gap={2} flexWrap="wrap">
-            <Button variant="outlined" startIcon={<EventIcon />} onClick={() => navigate('/leave-requests')}>
-              Request Leave
-            </Button>
-            <Button variant="outlined" startIcon={<AccessTimeIcon />} onClick={() => navigate('/time-logs')}>
-              View Time Logs
-            </Button>
-            <Button variant="outlined" startIcon={<AssignmentIcon />} onClick={() => navigate('/support-tickets')}>
-              Create Ticket
-            </Button>
-            <Button variant="outlined" startIcon={<CalendarTodayIcon />} onClick={() => navigate('/profile')}>
-              My Profile
-            </Button>
-          </Box>
-        </Paper>
-      </Box>
     </Box>
   )
 }

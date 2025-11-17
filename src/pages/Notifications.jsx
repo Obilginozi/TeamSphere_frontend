@@ -55,7 +55,7 @@ const Notifications = () => {
   const fetchNotifications = async () => {
     try {
       setLoading(true)
-      const response = await api.get('/api/notifications')
+      const response = await api.get('/notifications')
       setNotifications(response.data.data || [])
     } catch (err) {
       console.error('Failed to fetch notifications:', err)
@@ -67,7 +67,7 @@ const Notifications = () => {
 
   const handleMarkAsRead = async (id) => {
     try {
-      await api.put(`/api/notifications/${id}/read`)
+      await api.put(`/notifications/${id}/read`)
       setNotifications(notifications.map(n => 
         n.id === id ? { ...n, read: true } : n
       ))
@@ -78,7 +78,7 @@ const Notifications = () => {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await api.put('/api/notifications/read-all')
+      await api.put('/notifications/read-all')
       setNotifications(notifications.map(n => ({ ...n, read: true })))
     } catch (err) {
       setError('Failed to mark all notifications as read.')
@@ -87,7 +87,7 @@ const Notifications = () => {
 
   const handleDelete = async (id) => {
     try {
-      await api.delete(`/api/notifications/${id}`)
+      await api.delete(`/notifications/${id}`)
       setNotifications(notifications.filter(n => n.id !== id))
     } catch (err) {
       setError('Failed to delete notification.')
@@ -97,7 +97,7 @@ const Notifications = () => {
   const handleDeleteAll = async () => {
     if (window.confirm('Are you sure you want to delete all notifications?')) {
       try {
-        await api.delete('/api/notifications/all')
+        await api.delete('/notifications/all')
         setNotifications([])
       } catch (err) {
         setError('Failed to delete notifications.')

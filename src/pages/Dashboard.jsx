@@ -30,7 +30,7 @@ const Dashboard = () => {
 
   // Redirect based on user role
   if (user?.role === 'ADMIN') {
-    return <Navigate to="/system-monitoring" replace />
+    return <Navigate to="/admin-dashboard" replace />
   } else if (user?.role === 'HR') {
     return <Navigate to="/hr-dashboard" replace />
   } else if (user?.role === 'EMPLOYEE') {
@@ -45,18 +45,12 @@ const Dashboard = () => {
   ]
 
   const recentActivities = [
-    { action: 'New employee added', user: 'John Doe', time: '2 hours ago', type: 'success' },
-    { action: 'Leave request approved', user: 'Jane Smith', time: '4 hours ago', type: 'info' },
-    { action: 'Ticket resolved', user: 'Mike Johnson', time: '6 hours ago', type: 'success' },
-    { action: 'Time log updated', user: 'Sarah Wilson', time: '8 hours ago', type: 'info' },
+    { action: t('dashboard.newEmployeeAdded'), user: 'John Doe', time: t('dashboard.hoursAgo', { count: 2 }), type: 'success' },
+    { action: t('dashboard.leaveRequestApproved'), user: 'Jane Smith', time: t('dashboard.hoursAgo', { count: 4 }), type: 'info' },
+    { action: t('dashboard.ticketResolved'), user: 'Mike Johnson', time: t('dashboard.hoursAgo', { count: 6 }), type: 'success' },
+    { action: t('dashboard.timeLogUpdated'), user: 'Sarah Wilson', time: t('dashboard.hoursAgo', { count: 8 }), type: 'info' },
   ]
 
-  const quickActions = [
-    { title: t('employees.addEmployee'), icon: <People />, color: 'primary' },
-    { title: t('timeLogs.checkIn'), icon: <AccessTime />, color: 'success' },
-    { title: t('leaveRequests.requestLeave'), icon: <EventNote />, color: 'info' },
-    { title: t('tickets.createTicket'), icon: <Support />, color: 'warning' },
-  ]
 
   return (
     <Box>
@@ -110,38 +104,6 @@ const Dashboard = () => {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              {t('dashboard.quickActions')}
-            </Typography>
-            <Grid container spacing={2}>
-              {quickActions.map((action, index) => (
-                <Grid item xs={6} key={index}>
-                  <Card 
-                    sx={{ 
-                      cursor: 'pointer',
-                      '&:hover': { 
-                        boxShadow: 3,
-                        transform: 'translateY(-2px)',
-                        transition: 'all 0.2s'
-                      }
-                    }}
-                  >
-                    <CardContent sx={{ textAlign: 'center', p: 2 }}>
-                      <Box sx={{ color: `${action.color}.main`, mb: 1 }}>
-                        {action.icon}
-                      </Box>
-                      <Typography variant="body2">
-                        {action.title}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </Paper>
-        </Grid>
       </Grid>
     </Box>
   )

@@ -53,11 +53,11 @@ const BulkEmployeeImport = () => {
   const steps = ['Upload File', 'Validate Data', 'Import Employees', 'Complete'];
 
   const requiredFields = [
-    'firstName', 'lastName', 'email', 'phone', 'department', 'position', 'hireDate'
+    'firstName', 'lastName', 'email', 'department', 'position', 'hireDate', 'mobile', 'address', 'idCardNumber', 'birthDate', 'emergencyContact'
   ];
 
   const optionalFields = [
-    'manager', 'salary', 'address', 'emergencyContact', 'emergencyPhone', 'birthDate'
+    'phone', 'salary', 'manager'
   ];
 
   const handleFileUpload = (event) => {
@@ -76,20 +76,47 @@ const BulkEmployeeImport = () => {
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+          raw: false,
+          dateNF: 'yyyy-mm-dd'
+        });
 
         if (jsonData.length === 0) {
           setError('The Excel file is empty or has no data');
           return;
         }
 
-        setFileData({
-          fileName: file.name,
-          data: jsonData,
-          totalRows: jsonData.length
+        // Normalize date fields to YYYY-MM-DD format
+        const normalizedData = jsonData.map(row => {
+          const normalized = { ...row };
+          // Convert hireDate if it exists
+          if (normalized.hireDate) {
+            const date = new Date(normalized.hireDate);
+            if (!isNaN(date.getTime())) {
+              normalized.hireDate = date.toISOString().split('T')[0];
+            }
+          }
+          // Convert birthDate if it exists
+          if (normalized.birthDate) {
+            const date = new Date(normalized.birthDate);
+            if (!isNaN(date.getTime())) {
+              normalized.birthDate = date.toISOString().split('T')[0];
+            }
+          }
+          // Convert salary to number if it's a string
+          if (normalized.salary && typeof normalized.salary === 'string') {
+            normalized.salary = parseFloat(normalized.salary.replace(/[^0-9.-]/g, ''));
+          }
+          return normalized;
         });
 
-        setPreviewData(jsonData.slice(0, 5)); // Show first 5 rows for preview
+        setFileData({
+          fileName: file.name,
+          data: normalizedData,
+          totalRows: normalizedData.length
+        });
+
+        setPreviewData(normalizedData.slice(0, 5)); // Show first 5 rows for preview
         setActiveStep(1);
         setError(null);
       } catch (err) {
@@ -104,11 +131,11 @@ const BulkEmployeeImport = () => {
       setLoading(true);
       setError(null);
 
-      const response = await api.post('/api/employees/validate-bulk-import', {
+      const response = await api.post('/employee/validate-bulk-import', {
         employees: fileData.data
       });
 
-      setValidationResults(response.data);
+      setValidationResults(response.data.data);
       setActiveStep(2);
     } catch (err) {
       setError(err.response?.data?.message || 'Validation failed');
@@ -122,13 +149,13 @@ const BulkEmployeeImport = () => {
       setLoading(true);
       setError(null);
 
-      const response = await api.post('/api/employees/bulk-import', {
+      const response = await api.post('/employee/bulk-import', {
         employees: fileData.data,
         generatePasswords: true,
         sendEmails: true
       });
 
-      setImportResults(response.data);
+      setImportResults(response.data.data);
       setActiveStep(3);
     } catch (err) {
       setError(err.response?.data?.message || 'Import failed');
@@ -140,34 +167,38 @@ const BulkEmployeeImport = () => {
   const downloadTemplate = () => {
     const templateData = [
       {
+        employeeId: 'EMP001',
         firstName: 'John',
         lastName: 'Doe',
         email: 'john.doe@company.com',
         phone: '+905551234567',
+        mobile: '+905551234567',
         department: 'IT',
         position: 'Software Developer',
         hireDate: '2024-01-15',
-        manager: 'Jane Smith',
-        salary: '50000',
+        birthDate: '1990-05-15',
         address: '123 Main St, Istanbul',
+        idCardNumber: '12345678901',
+        salary: 50000,
         emergencyContact: 'Jane Doe',
-        emergencyPhone: '+905559876543',
-        birthDate: '1990-05-15'
+        manager: 'Jane Smith'
       },
       {
+        employeeId: 'EMP002',
         firstName: 'Jane',
         lastName: 'Smith',
         email: 'jane.smith@company.com',
         phone: '+905551234568',
+        mobile: '+905551234568',
         department: 'HR',
         position: 'HR Manager',
         hireDate: '2024-01-10',
-        manager: '',
-        salary: '60000',
+        birthDate: '1988-03-20',
         address: '456 Oak Ave, Istanbul',
+        idCardNumber: '12345678902',
+        salary: 60000,
         emergencyContact: 'John Smith',
-        emergencyPhone: '+905559876544',
-        birthDate: '1988-03-20'
+        manager: ''
       }
     ];
 
@@ -292,14 +323,14 @@ const BulkEmployeeImport = () => {
         disabled={loading}
         startIcon={loading ? <CircularProgress size={20} /> : <CheckCircleIcon />}
       >
-        {loading ? 'Validating...' : 'Validate Data'}
+        {loading ? t('bulkImport.validating') : t('bulkImport.validateData')}
       </Button>
     </Box>
   );
 
   const renderImportStep = () => (
     <Box>
-      <Typography variant="h6" gutterBottom>Import Employees</Typography>
+      <Typography variant="h6" gutterBottom>{t('bulkImport.importEmployees')}</Typography>
       
       {validationResults && (
         <Box sx={{ mb: 3 }}>
@@ -310,7 +341,7 @@ const BulkEmployeeImport = () => {
                   <Typography variant="h6" color="success.main">
                     {validationResults.validCount}
                   </Typography>
-                  <Typography variant="body2">Valid Records</Typography>
+                  <Typography variant="body2">{t('bulkImport.validRecords')}</Typography>
                 </CardContent>
               </Card>
             </Grid>
@@ -320,7 +351,7 @@ const BulkEmployeeImport = () => {
                   <Typography variant="h6" color="error.main">
                     {validationResults.errorCount}
                   </Typography>
-                  <Typography variant="body2">Errors</Typography>
+                  <Typography variant="body2">{t('bulkImport.errors')}</Typography>
                 </CardContent>
               </Card>
             </Grid>
@@ -330,7 +361,7 @@ const BulkEmployeeImport = () => {
                   <Typography variant="h6" color="warning.main">
                     {validationResults.warningCount}
                   </Typography>
-                  <Typography variant="body2">Warnings</Typography>
+                  <Typography variant="body2">{t('bulkImport.warnings')}</Typography>
                 </CardContent>
               </Card>
             </Grid>
@@ -338,15 +369,15 @@ const BulkEmployeeImport = () => {
 
           {validationResults.errors.length > 0 && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              <Typography variant="subtitle2" gutterBottom>Validation Errors:</Typography>
+              <Typography variant="subtitle2" gutterBottom>{t('excelImport.validationErrors')}:</Typography>
               {validationResults.errors.slice(0, 5).map((error, index) => (
                 <Typography key={index} variant="body2">
-                  Row {error.row}: {error.message}
+                  {t('excelImport.row')} {error.row}: {error.message}
                 </Typography>
               ))}
               {validationResults.errors.length > 5 && (
                 <Typography variant="body2">
-                  ... and {validationResults.errors.length - 5} more errors
+                  {t('excelImport.moreErrors', { count: validationResults.errors.length - 5 })}
                 </Typography>
               )}
             </Alert>

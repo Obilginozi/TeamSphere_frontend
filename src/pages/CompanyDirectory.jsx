@@ -26,8 +26,10 @@ import {
   Language
 } from '@mui/icons-material'
 import api from '../services/api'
+import { useTranslation } from 'react-i18next'
 
 const CompanyDirectory = () => {
+  const { t } = useTranslation()
   const [employees, setEmployees] = useState([])
   const [companyInfo, setCompanyInfo] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -41,7 +43,7 @@ const CompanyDirectory = () => {
 
   const fetchCompanyInfo = async () => {
     try {
-      const response = await api.get('/api/company/info')
+      const response = await api.get('/companies/my-company')
       setCompanyInfo(response.data.data)
     } catch (error) {
       console.error('Error fetching company info:', error)
@@ -50,7 +52,7 @@ const CompanyDirectory = () => {
 
   const fetchEmployees = async () => {
     try {
-      const response = await api.get('/api/employees/directory')
+      const response = await api.get('/employee')
       setEmployees(response.data.data || [])
     } catch (error) {
       console.error('Error fetching employees:', error)
@@ -59,7 +61,7 @@ const CompanyDirectory = () => {
 
   const fetchHRContacts = async () => {
     try {
-      const response = await api.get('/api/company/hr-contacts')
+      const response = await api.get('/companies/my-company')
       setHrContacts(response.data.data || [])
     } catch (error) {
       console.error('Error fetching HR contacts:', error)
@@ -132,12 +134,12 @@ const CompanyDirectory = () => {
       {/* Employee Directory */}
       <Paper sx={{ p: 2 }}>
         <Typography variant="h6" gutterBottom>
-          Employee Directory
+          {t('companyDirectory.title')}
         </Typography>
 
         <TextField
           fullWidth
-          placeholder="Search employees by name, position, or department..."
+          placeholder={t('companyDirectory.searchPlaceholder')}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           sx={{ mb: 2 }}

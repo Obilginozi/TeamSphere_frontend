@@ -72,7 +72,7 @@ function WorkdayReports() {
       })
       setReports(response.data.data)
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to generate report')
+      setError(err.response?.data?.message || t('workdayReports.failedToGenerateReport'))
     } finally {
       setLoading(false)
     }
@@ -84,6 +84,11 @@ function WorkdayReports() {
       return
     }
 
+    if (new Date(startDate) > new Date(endDate)) {
+      setError(t('workdayReports.startDateBeforeEndDate'))
+      return
+    }
+
     setLoading(true)
     setError('')
 
@@ -91,9 +96,20 @@ function WorkdayReports() {
       const response = await api.get('/workday-reports/summary', {
         params: { startWorkday: startDate, endWorkday: endDate }
       })
-      setSummary(response.data.data)
+      if (response.data && response.data.data) {
+        setSummary(response.data.data)
+        if (Object.keys(response.data.data).length === 0) {
+          setError(t('workdayReports.noSummaryDataFound'))
+        }
+      } else {
+        setSummary({})
+        setError(t('workdayReports.noSummaryDataReturned'))
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to generate summary')
+      console.error('Failed to generate summary:', err)
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || t('workdayReports.failedToGenerateSummary')
+      setError(errorMessage)
+      setSummary({})
     } finally {
       setLoading(false)
     }
@@ -102,6 +118,11 @@ function WorkdayReports() {
   const handleExportExcel = async () => {
     if (!startDate || !endDate) {
       setError(t('workdayReports.selectDates'))
+      return
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      setError(t('workdayReports.startDateBeforeEndDate'))
       return
     }
 
@@ -114,16 +135,23 @@ function WorkdayReports() {
         responseType: 'blob'
       })
 
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `Workday_Report_${startDate}_to_${endDate}.xlsx`)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
+      if (response.data && response.data.size > 0) {
+        // Create download link
+        const url = window.URL.createObjectURL(new Blob([response.data]))
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', `Workday_Report_${startDate}_to_${endDate}.xlsx`)
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        window.URL.revokeObjectURL(url)
+      } else {
+        setError(t('workdayReports.noDataToExport'))
+      }
     } catch (err) {
-      setError('Failed to export Excel file')
+      console.error('Failed to export Excel file:', err)
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || t('workdayReports.failedToExportExcel')
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -267,62 +295,76 @@ function WorkdayReports() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    reports.map((report, index) => (
-                      <TableRow key={index}>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {report.employeeName}
-                          </Typography>
-                          <Typography variant="caption" color="textSecondary">
-                            {report.employeeNumber}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{report.department}</TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {new Date(report.workdayDate).toLocaleDateString()}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{report.checkInTime}</TableCell>
-                        <TableCell>{report.checkOutTime || '-'}</TableCell>
-                        <TableCell align="right">
-                          <strong>{report.totalWorkingHours?.toFixed(2) || '0.00'}</strong>
-                        </TableCell>
-                        <TableCell align="right">
-                          {report.regularHours?.toFixed(2) || '0.00'}
-                        </TableCell>
-                        <TableCell align="right">
-                          {report.overtimeHours?.toFixed(2) || '0.00'}
-                        </TableCell>
-                        <TableCell>
-                          {report.isNightShift ? (
+                    reports.map((report, index) => {
+                      // Parse workdayDate (format: "2024-01-15")
+                      const workdayDate = report.workdayDate 
+                        ? (typeof report.workdayDate === 'string' 
+                            ? new Date(report.workdayDate + 'T00:00:00')
+                            : new Date(report.workdayDate))
+                        : null
+                      
+                      return (
+                        <TableRow key={report.employeeId ? `${report.employeeId}-${report.workdayDate}-${index}` : index}>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {report.employeeName || t('workdayReports.unknown')}
+                            </Typography>
+                            {report.employeeNumber && (
+                              <Typography variant="caption" color="textSecondary">
+                                {report.employeeNumber}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>{report.department || t('common.not_available')}</TableCell>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {workdayDate ? workdayDate.toLocaleDateString() : report.workdayDate || '-'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>{report.checkInTime || '-'}</TableCell>
+                          <TableCell>{report.checkOutTime || '-'}</TableCell>
+                          <TableCell align="right">
+                            <strong>{report.totalWorkingHours != null ? report.totalWorkingHours.toFixed(2) : '0.00'}</strong>
+                          </TableCell>
+                          <TableCell align="right">
+                            {report.regularHours != null ? report.regularHours.toFixed(2) : '0.00'}
+                          </TableCell>
+                          <TableCell align="right">
+                            {report.overtimeHours != null ? report.overtimeHours.toFixed(2) : '0.00'}
+                          </TableCell>
+                          <TableCell>
+                            {report.isNightShift ? (
+                              <Chip
+                                icon={<NightIcon />}
+                                label={t('workdayReports.nightShift')}
+                                size="small"
+                                color="secondary"
+                              />
+                            ) : (
+                              <Chip
+                                icon={<DayIcon />}
+                                label={t('workdayReports.dayShift')}
+                                size="small"
+                                color="default"
+                              />
+                            )}
+                          </TableCell>
+                          <TableCell>
                             <Chip
-                              icon={<NightIcon />}
-                              label={t('workdayReports.nightShift')}
+                              label={report.status === 'PRESENT' ? t('workdayReports.present') : 
+                                     report.status === 'ABSENT' ? t('workdayReports.absent') :
+                                     report.status === 'LATE' ? t('workdayReports.late') :
+                                     report.status === 'EARLY_LEAVE' ? t('workdayReports.earlyLeave') : 
+                                     (report.status || t('workdayReports.unknown'))}
                               size="small"
-                              color="secondary"
+                              color={report.status === 'PRESENT' ? 'success' : 
+                                     report.status === 'LATE' ? 'warning' :
+                                     report.status === 'ABSENT' ? 'error' : 'default'}
                             />
-                          ) : (
-                            <Chip
-                              icon={<DayIcon />}
-                              label={t('workdayReports.dayShift')}
-                              size="small"
-                              color="default"
-                            />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={report.status === 'PRESENT' ? t('workdayReports.present') : 
-                                   report.status === 'ABSENT' ? t('workdayReports.absent') :
-                                   report.status === 'LATE' ? t('workdayReports.late') :
-                                   report.status === 'EARLY_LEAVE' ? t('workdayReports.earlyLeave') : report.status}
-                            size="small"
-                            color={report.status === 'PRESENT' ? 'success' : 'default'}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -338,64 +380,70 @@ function WorkdayReports() {
                 </Alert>
               ) : (
                 <Grid container spacing={2}>
-                  {Object.entries(summary).map(([date, data]) => (
-                    <Grid item xs={12} md={6} key={date}>
-                      <Card variant="outlined">
-                        <CardContent>
-                          <Typography variant="h6" gutterBottom>
-                            {new Date(date).toLocaleDateString('en-US', {
-                              weekday: 'long',
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })}
-                          </Typography>
-                          <Grid container spacing={2}>
-                            <Grid item xs={6}>
-                              <Typography variant="body2" color="textSecondary">
-                                {t('employees.employees')}
+                  {Object.entries(summary)
+                    .sort(([dateA], [dateB]) => new Date(dateA) - new Date(dateB))
+                    .map(([date, data]) => {
+                      // Parse date string (format: "2024-01-15")
+                      const dateObj = new Date(date + 'T00:00:00')
+                      return (
+                        <Grid item xs={12} md={6} key={date}>
+                          <Card variant="outlined">
+                            <CardContent>
+                              <Typography variant="h6" gutterBottom>
+                                {dateObj.toLocaleDateString('en-US', {
+                                  weekday: 'long',
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric'
+                                })}
                               </Typography>
-                              <Typography variant="h5">
-                                {data.employeeCount}
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                              <Typography variant="body2" color="textSecondary">
-                                {t('workdayReports.totalHours')}
-                              </Typography>
-                              <Typography variant="h5">
-                                {data.totalHours?.toFixed(1)}
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                              <Typography variant="body2" color="textSecondary">
-                                {t('workdayReports.averageHours')}
-                              </Typography>
-                              <Typography variant="h6">
-                                {data.averageHours?.toFixed(1)}
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                              <Typography variant="body2" color="textSecondary">
-                                {t('workdayReports.overtime')}
-                              </Typography>
-                              <Typography variant="h6" color="warning.main">
-                                {data.overtimeHours?.toFixed(1)}
-                              </Typography>
-                            </Grid>
-                            <Grid item xs={12}>
-                              <Typography variant="body2" color="textSecondary">
-                                {t('workdayReports.nightShiftWorkers')}
-                              </Typography>
-                              <Typography variant="h6">
-                                {data.nightShiftCount}
-                              </Typography>
-                            </Grid>
-                          </Grid>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  ))}
+                              <Grid container spacing={2}>
+                                <Grid item xs={6}>
+                                  <Typography variant="body2" color="textSecondary">
+                                    {t('employees.employees')}
+                                  </Typography>
+                                  <Typography variant="h5">
+                                    {data.employeeCount || 0}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={6}>
+                                  <Typography variant="body2" color="textSecondary">
+                                    {t('workdayReports.totalHours')}
+                                  </Typography>
+                                  <Typography variant="h5">
+                                    {data.totalHours ? data.totalHours.toFixed(1) : '0.0'}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={6}>
+                                  <Typography variant="body2" color="textSecondary">
+                                    {t('workdayReports.averageHours')}
+                                  </Typography>
+                                  <Typography variant="h6">
+                                    {data.averageHours ? data.averageHours.toFixed(1) : '0.0'}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={6}>
+                                  <Typography variant="body2" color="textSecondary">
+                                    {t('workdayReports.overtime')}
+                                  </Typography>
+                                  <Typography variant="h6" color="warning.main">
+                                    {data.overtimeHours ? data.overtimeHours.toFixed(1) : '0.0'}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={12}>
+                                  <Typography variant="body2" color="textSecondary">
+                                    {t('workdayReports.nightShiftWorkers')}
+                                  </Typography>
+                                  <Typography variant="h6">
+                                    {data.nightShiftCount || 0}
+                                  </Typography>
+                                </Grid>
+                              </Grid>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      )
+                    })}
                 </Grid>
               )}
             </Box>

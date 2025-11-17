@@ -24,8 +24,10 @@ import {
   Download
 } from '@mui/icons-material'
 import api from '../services/api'
+import { useTranslation } from 'react-i18next'
 
 const MyTimeHistory = () => {
+  const { t } = useTranslation()
   const [records, setRecords] = useState([])
   const [stats, setStats] = useState({
     totalHours: 0,
@@ -52,7 +54,7 @@ const MyTimeHistory = () => {
         startDate: startDate || undefined,
         endDate: endDate || undefined
       }
-      const response = await api.get('/api/time-logs/my-history', { params })
+      const response = await api.get('/time-logs/my-history', { params })
       setRecords(response.data.data.content || [])
       setTotalElements(response.data.data.totalElements || 0)
     } catch (error) {
@@ -62,7 +64,7 @@ const MyTimeHistory = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await api.get('/api/time-logs/my-stats', {
+      const response = await api.get('/time-logs/my-stats', {
         params: { startDate, endDate }
       })
       setStats(response.data.data || stats)
@@ -89,7 +91,7 @@ const MyTimeHistory = () => {
 
   const handleExport = async () => {
     try {
-      const response = await api.get('/api/time-logs/export/my-history', {
+      const response = await api.get('/time-logs/export/my-history', {
         responseType: 'blob',
         params: { startDate, endDate }
       })
@@ -181,7 +183,7 @@ const MyTimeHistory = () => {
           <Grid item xs={12} md={4}>
             <TextField
               fullWidth
-              label="Start Date"
+              label={t('myTimeHistory.startDate')}
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
@@ -191,7 +193,7 @@ const MyTimeHistory = () => {
           <Grid item xs={12} md={4}>
             <TextField
               fullWidth
-              label="End Date"
+              label={t('myTimeHistory.endDate')}
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
@@ -205,7 +207,7 @@ const MyTimeHistory = () => {
               startIcon={<Download />}
               onClick={handleExport}
             >
-              Export to Excel
+              {t('myTimeHistory.exportToExcel')}
             </Button>
           </Grid>
         </Grid>

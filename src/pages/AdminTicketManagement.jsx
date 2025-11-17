@@ -66,6 +66,7 @@ const AdminTicketManagement = () => {
   const [replyText, setReplyText] = useState('')
   const [replyAttachment, setReplyAttachment] = useState(null)
   const [ticketComments, setTicketComments] = useState([])
+  const [attachmentObjectUrl, setAttachmentObjectUrl] = useState(null)
 
   useEffect(() => {
     fetchTickets()
@@ -112,13 +113,46 @@ const AdminTicketManagement = () => {
   const handleViewTicket = async (ticketId) => {
     try {
       const response = await api.get(`/admin/tickets/${ticketId}`)
-      setSelectedTicket(response.data.data)
+      const ticket = response.data.data
+      setSelectedTicket(ticket)
       setViewDialogOpen(true)
+      
+      // Fetch attachment as blob if it exists
+      if (ticket.attachmentUrl) {
+        try {
+          const imageUrl = getImageUrl(ticket.attachmentUrl)
+          // Remove /api prefix since axios already adds it
+          const apiPath = imageUrl.replace('/api', '')
+          const blobResponse = await api.get(apiPath, {
+            responseType: 'blob'
+          })
+          const blob = new Blob([blobResponse.data])
+          const objectUrl = URL.createObjectURL(blob)
+          setAttachmentObjectUrl(objectUrl)
+        } catch (err) {
+          console.error('Failed to fetch attachment as blob:', err)
+          setAttachmentObjectUrl(null)
+        }
+      } else {
+        setAttachmentObjectUrl(null)
+      }
+      
       // Also fetch comments
       await fetchTicketComments(ticketId)
     } catch (error) {
       console.error('Failed to fetch ticket:', error)
     }
+  }
+  
+  const getImageUrl = (attachmentUrl) => {
+    if (!attachmentUrl) return null
+    // If it's a relative path, construct full URL
+    if (attachmentUrl.startsWith('uploads/')) {
+      // Extract the file path after uploads/
+      const filePath = attachmentUrl.replace('uploads/', '')
+      return `/api/general-tickets/files?path=${encodeURIComponent(attachmentUrl)}`
+    }
+    return attachmentUrl
   }
 
   const fetchTicketComments = async (ticketId) => {
@@ -526,7 +560,19 @@ const AdminTicketManagement = () => {
       )}
 
       {/* View Ticket Dialog */}
-      <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog 
+        open={viewDialogOpen} 
+        onClose={() => {
+          setViewDialogOpen(false)
+          // Cleanup object URL when dialog closes
+          if (attachmentObjectUrl) {
+            URL.revokeObjectURL(attachmentObjectUrl)
+            setAttachmentObjectUrl(null)
+          }
+        }} 
+        maxWidth="md" 
+        fullWidth
+      >
         {selectedTicket && (
           <>
             <DialogTitle>{t('tickets.title')} #{selectedTicket.id}: {selectedTicket.title}</DialogTitle>
@@ -549,6 +595,40 @@ const AdminTicketManagement = () => {
                   <Typography variant="subtitle2">{t('tickets.description')}:</Typography>
                   <Typography>{selectedTicket.description}</Typography>
                 </Grid>
+                {selectedTicket.attachmentUrl && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Attached Screenshot:
+                    </Typography>
+                    {attachmentObjectUrl ? (
+                      <Box sx={{ mt: 1 }}>
+                        <img
+                          src={attachmentObjectUrl}
+                          alt="Ticket attachment"
+                          style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '4px' }}
+                          onError={(e) => {
+                            e.target.style.display = 'none'
+                            if (e.target.nextSibling) {
+                              e.target.nextSibling.style.display = 'block'
+                            }
+                          }}
+                        />
+                        <Typography variant="body2" color="error" sx={{ display: 'none' }}>
+                          Failed to load image
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        Loading image...
+                      </Typography>
+                    )}
+                    {selectedTicket.attachmentFilename && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                        {selectedTicket.attachmentFilename}
+                      </Typography>
+                    )}
+                  </Grid>
+                )}
                 <Grid item xs={12}>
                   <Typography variant="subtitle2">{t('adminTickets.updateStatus')}:</Typography>
                   <FormControl fullWidth>

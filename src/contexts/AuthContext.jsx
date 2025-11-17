@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import jwtDecode from 'jwt-decode'
 import api from '../services/api'
+import { getErrorMessage } from '../utils/errorHandler'
 
 const AuthContext = createContext()
 
@@ -16,6 +17,11 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [company, setCompany] = useState(null)
+  const [selectedCompanyId, setSelectedCompanyId] = useState(() => {
+    // Load selected company ID from localStorage (for admin company switching)
+    const saved = localStorage.getItem('selectedCompanyId')
+    return saved ? parseInt(saved, 10) : null
+  })
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
@@ -54,6 +60,10 @@ export const AuthProvider = ({ children }) => {
       const { token, ...userData } = response.data.data
       
       localStorage.setItem('token', token)
+      // Clear selectedCompanyId on new login (admin needs to select company again)
+      localStorage.removeItem('selectedCompanyId')
+      setSelectedCompanyId(null)
+      
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`
       setUser(userData)
       
@@ -67,18 +77,29 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true }
     } catch (error) {
+      // Handle validation errors and other error types
+      let errorMessage = getErrorMessage(error, 'Login failed')
+      
+      // Check for validation errors array
+      if (error?.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        const validationErrors = error.response.data.errors.map(e => e.message || e).join(', ')
+        errorMessage = validationErrors || errorMessage
+      }
+      
       return { 
         success: false, 
-        error: error.response?.data?.message || 'Login failed' 
+        error: errorMessage
       }
     }
   }
 
   const logout = () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('selectedCompanyId') // Clear selected company on logout
     delete api.defaults.headers.common['Authorization']
     setUser(null)
     setCompany(null)
+    setSelectedCompanyId(null) // Clear selected company state
     navigate('/login')
   }
 
@@ -92,10 +113,35 @@ export const AuthProvider = ({ children }) => {
     return roles.includes(user.role)
   }
 
+  const switchCompany = (companyId) => {
+    if (user?.role === 'ADMIN') {
+      setSelectedCompanyId(companyId)
+      localStorage.setItem('selectedCompanyId', companyId.toString())
+      // Update company state
+      if (companyId) {
+        // Fetch company details
+        api.get(`/companies/${companyId}`)
+          .then(response => {
+            if (response.data?.data) {
+              setCompany({
+                id: response.data.data.id,
+                name: response.data.data.name
+              })
+            }
+          })
+          .catch(error => {
+            console.error('Failed to fetch company details:', error)
+          })
+      }
+    }
+  }
+
   const value = {
     user,
     setUser,
     company,
+    selectedCompanyId,
+    switchCompany,
     login,
     logout,
     hasRole,

@@ -32,9 +32,11 @@ import {
   PhotoCamera
 } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
+import { useTranslation } from 'react-i18next'
 import api from '../services/api'
 
 const Settings = () => {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState(0)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
@@ -46,16 +48,16 @@ const Settings = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
-        Settings
+        {t('settings.title')}
       </Typography>
 
       <Paper>
         <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tab icon={<Person />} label="Profile" />
-          <Tab icon={<Security />} label="Security" />
-          <Tab icon={<Palette />} label="Appearance" />
-          <Tab icon={<Notifications />} label="Notifications" />
-          <Tab icon={<Language />} label="Language" />
+          <Tab icon={<Person />} label={t('settings.profile')} />
+          <Tab icon={<Security />} label={t('settings.security')} />
+          <Tab icon={<Palette />} label={t('settings.appearance')} />
+          <Tab icon={<Notifications />} label={t('settings.notifications')} />
+          <Tab icon={<Language />} label={t('settings.language')} />
         </Tabs>
 
         <Box sx={{ p: 3 }}>
@@ -81,6 +83,7 @@ const Settings = () => {
 }
 
 const ProfileSettings = ({ showSnackbar }) => {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
@@ -92,17 +95,17 @@ const ProfileSettings = ({ showSnackbar }) => {
 
   const handleSave = async () => {
     try {
-      await api.put('/api/profile', formData)
-      showSnackbar('Profile updated successfully', 'success')
+      await api.put('/users/profile', formData)
+      showSnackbar(t('settings.profileUpdatedSuccessfully'), 'success')
     } catch (error) {
-      showSnackbar('Failed to update profile', 'error')
+      showSnackbar(t('settings.failedToUpdateProfile'), 'error')
     }
   }
 
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
-        Profile Information
+        {t('settings.profileInformation')}
       </Typography>
       <Divider sx={{ mb: 3 }} />
 
@@ -111,7 +114,7 @@ const ProfileSettings = ({ showSnackbar }) => {
           {formData.firstName[0]}{formData.lastName[0]}
         </Avatar>
         <Button variant="outlined" startIcon={<PhotoCamera />}>
-          Upload Photo
+          {t('settings.uploadPhoto')}
         </Button>
       </Box>
 
@@ -119,7 +122,7 @@ const ProfileSettings = ({ showSnackbar }) => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="First Name"
+            label={t('settings.firstName')}
             value={formData.firstName}
             onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
           />
@@ -127,7 +130,7 @@ const ProfileSettings = ({ showSnackbar }) => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Last Name"
+            label={t('settings.lastName')}
             value={formData.lastName}
             onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
           />
@@ -135,7 +138,7 @@ const ProfileSettings = ({ showSnackbar }) => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Email"
+            label={t('settings.email')}
             type="email"
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -144,7 +147,7 @@ const ProfileSettings = ({ showSnackbar }) => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Phone Number"
+            label={t('settings.phoneNumber')}
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
           />
@@ -152,7 +155,7 @@ const ProfileSettings = ({ showSnackbar }) => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Mobile Number"
+            label={t('settings.mobileNumber')}
             value={formData.mobile}
             onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
           />
@@ -161,7 +164,7 @@ const ProfileSettings = ({ showSnackbar }) => {
 
       <Box sx={{ mt: 3 }}>
         <Button variant="contained" onClick={handleSave}>
-          Save Changes
+          {t('settings.saveChanges')}
         </Button>
       </Box>
     </Box>
@@ -169,6 +172,7 @@ const ProfileSettings = ({ showSnackbar }) => {
 }
 
 const SecuritySettings = ({ showSnackbar }) => {
+  const { t } = useTranslation()
   const [passwords, setPasswords] = useState({
     current: '',
     new: '',
@@ -178,7 +182,7 @@ const SecuritySettings = ({ showSnackbar }) => {
 
   const handleChangePassword = async () => {
     if (passwords.new !== passwords.confirm) {
-      showSnackbar('Passwords do not match', 'error')
+      showSnackbar(t('settings.passwordsDoNotMatch'), 'error')
       return
     }
     try {
@@ -186,10 +190,10 @@ const SecuritySettings = ({ showSnackbar }) => {
         oldPassword: passwords.current,
         newPassword: passwords.new
       })
-      showSnackbar('Password changed successfully', 'success')
+      showSnackbar(t('settings.passwordChangedSuccessfully'), 'success')
       setPasswords({ current: '', new: '', confirm: '' })
     } catch (error) {
-      showSnackbar('Failed to change password', 'error')
+      showSnackbar(t('settings.failedToChangePassword'), 'error')
     }
   }
 
@@ -204,7 +208,7 @@ const SecuritySettings = ({ showSnackbar }) => {
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="Current Password"
+            label={t('settings.currentPassword')}
             type={showPassword ? 'text' : 'password'}
             value={passwords.current}
             onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
@@ -222,7 +226,7 @@ const SecuritySettings = ({ showSnackbar }) => {
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="New Password"
+            label={t('settings.newPassword')}
             type={showPassword ? 'text' : 'password'}
             value={passwords.new}
             onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
@@ -231,7 +235,7 @@ const SecuritySettings = ({ showSnackbar }) => {
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="Confirm New Password"
+            label={t('settings.confirmNewPassword')}
             type={showPassword ? 'text' : 'password'}
             value={passwords.confirm}
             onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
@@ -240,31 +244,32 @@ const SecuritySettings = ({ showSnackbar }) => {
       </Grid>
 
       <Alert severity="info" sx={{ mt: 2, maxWidth: 600 }}>
-        Password must be at least 8 characters long and contain uppercase, lowercase, and numbers.
+        {t('settings.passwordRequirements')}
       </Alert>
 
       <Box sx={{ mt: 3 }}>
         <Button variant="contained" onClick={handleChangePassword}>
-          Change Password
+          {t('settings.changePassword')}
         </Button>
       </Box>
 
       <Divider sx={{ my: 4 }} />
 
       <Typography variant="h6" gutterBottom>
-        Two-Factor Authentication
+        {t('settings.twoFactorAuthentication')}
       </Typography>
       <Typography variant="body2" color="textSecondary" paragraph>
-        Add an extra layer of security to your account
+        {t('settings.addExtraSecurity')}
       </Typography>
       <Button variant="outlined">
-        Enable 2FA
+        {t('settings.enable2FA')}
       </Button>
     </Box>
   )
 }
 
 const AppearanceSettings = ({ showSnackbar }) => {
+  const { t } = useTranslation()
   const [theme, setTheme] = useState('light')
   const [fontSize, setFontSize] = useState('medium')
 
@@ -278,17 +283,17 @@ const AppearanceSettings = ({ showSnackbar }) => {
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
-        Appearance
+        {t('settings.appearance')}
       </Typography>
       <Divider sx={{ mb: 3 }} />
 
       <Grid container spacing={3} maxWidth={600}>
         <Grid item xs={12}>
           <FormControl fullWidth>
-            <InputLabel>Theme</InputLabel>
+            <InputLabel>{t('settings.theme')}</InputLabel>
             <Select
               value={theme}
-              label="Theme"
+              label={t('settings.theme')}
               onChange={(e) => setTheme(e.target.value)}
             >
               <MenuItem value="light">Light</MenuItem>
@@ -301,10 +306,10 @@ const AppearanceSettings = ({ showSnackbar }) => {
 
         <Grid item xs={12}>
           <FormControl fullWidth>
-            <InputLabel>Font Size</InputLabel>
+            <InputLabel>{t('settings.fontSize')}</InputLabel>
             <Select
               value={fontSize}
-              label="Font Size"
+              label={t('settings.fontSize')}
               onChange={(e) => setFontSize(e.target.value)}
             >
               <MenuItem value="small">Small</MenuItem>
@@ -317,21 +322,21 @@ const AppearanceSettings = ({ showSnackbar }) => {
         <Grid item xs={12}>
           <FormControlLabel
             control={<Switch />}
-            label="High Contrast Mode"
+            label={t('settings.highContrastMode')}
           />
         </Grid>
 
         <Grid item xs={12}>
           <FormControlLabel
             control={<Switch defaultChecked />}
-            label="Smooth Animations"
+            label={t('settings.smoothAnimations')}
           />
         </Grid>
       </Grid>
 
       <Box sx={{ mt: 3 }}>
         <Button variant="contained" onClick={handleSave}>
-          Save Preferences
+          {t('settings.savePreferences')}
         </Button>
       </Box>
     </Box>
@@ -339,6 +344,7 @@ const AppearanceSettings = ({ showSnackbar }) => {
 }
 
 const NotificationSettings = ({ showSnackbar }) => {
+  const { t } = useTranslation()
   const [settings, setSettings] = useState({
     emailNotifications: true,
     pushNotifications: true,
@@ -349,13 +355,13 @@ const NotificationSettings = ({ showSnackbar }) => {
   })
 
   const handleSave = () => {
-    showSnackbar('Notification settings saved', 'success')
+    showSnackbar(t('settings.notificationSettingsSaved'), 'success')
   }
 
   return (
     <Box>
       <Typography variant="h6" gutterBottom>
-        Notifications
+        {t('settings.notifications')}
       </Typography>
       <Divider sx={{ mb: 3 }} />
 
@@ -367,10 +373,10 @@ const NotificationSettings = ({ showSnackbar }) => {
               onChange={(e) => setSettings({ ...settings, emailNotifications: e.target.checked })}
             />
           }
-          label="Email Notifications"
+          label={t('settings.emailNotifications')}
         />
         <Typography variant="body2" color="textSecondary" sx={{ ml: 4, mb: 2 }}>
-          Receive notifications via email
+          {t('settings.receiveNotificationsViaEmail')}
         </Typography>
 
         <FormControlLabel
@@ -380,15 +386,15 @@ const NotificationSettings = ({ showSnackbar }) => {
               onChange={(e) => setSettings({ ...settings, pushNotifications: e.target.checked })}
             />
           }
-          label="Push Notifications"
+          label={t('settings.pushNotifications')}
         />
         <Typography variant="body2" color="textSecondary" sx={{ ml: 4, mb: 2 }}>
-          Receive push notifications in your browser
+          {t('settings.receivePushNotifications')}
         </Typography>
 
         <Divider sx={{ my: 2 }} />
         <Typography variant="subtitle2" gutterBottom>
-          Notification Types
+          {t('settings.notificationTypes')}
         </Typography>
 
         <FormControlLabel
@@ -398,7 +404,7 @@ const NotificationSettings = ({ showSnackbar }) => {
               onChange={(e) => setSettings({ ...settings, leaveRequests: e.target.checked })}
             />
           }
-          label="Leave Request Updates"
+          label={t('settings.leaveRequestUpdates')}
         />
 
         <FormControlLabel
@@ -408,7 +414,7 @@ const NotificationSettings = ({ showSnackbar }) => {
               onChange={(e) => setSettings({ ...settings, attendanceAlerts: e.target.checked })}
             />
           }
-          label="Attendance Alerts"
+          label={t('settings.attendanceAlerts')}
         />
 
         <FormControlLabel
@@ -418,7 +424,7 @@ const NotificationSettings = ({ showSnackbar }) => {
               onChange={(e) => setSettings({ ...settings, systemUpdates: e.target.checked })}
             />
           }
-          label="System Updates"
+          label={t('settings.systemUpdates')}
         />
 
         <FormControlLabel
@@ -428,13 +434,13 @@ const NotificationSettings = ({ showSnackbar }) => {
               onChange={(e) => setSettings({ ...settings, weeklyReports: e.target.checked })}
             />
           }
-          label="Weekly Reports"
+          label={t('settings.weeklyReports')}
         />
       </Box>
 
       <Box sx={{ mt: 3 }}>
         <Button variant="contained" onClick={handleSave}>
-          Save Preferences
+          {t('settings.savePreferences')}
         </Button>
       </Box>
     </Box>
@@ -447,7 +453,7 @@ const LanguageSettings = ({ showSnackbar }) => {
   const [dateFormat, setDateFormat] = useState('MM/DD/YYYY')
 
   const handleSave = () => {
-    showSnackbar('Language settings saved', 'success')
+    showSnackbar(t('settings.languageSettingsSaved'), 'success')
   }
 
   return (
@@ -460,10 +466,10 @@ const LanguageSettings = ({ showSnackbar }) => {
       <Grid container spacing={3} maxWidth={600}>
         <Grid item xs={12}>
           <FormControl fullWidth>
-            <InputLabel>Language</InputLabel>
+            <InputLabel>{t('settings.language')}</InputLabel>
             <Select
               value={language}
-              label="Language"
+              label={t('settings.language')}
               onChange={(e) => setLanguage(e.target.value)}
             >
               <MenuItem value="en">English</MenuItem>
@@ -477,10 +483,10 @@ const LanguageSettings = ({ showSnackbar }) => {
 
         <Grid item xs={12}>
           <FormControl fullWidth>
-            <InputLabel>Timezone</InputLabel>
+            <InputLabel>{t('settings.timezone')}</InputLabel>
             <Select
               value={timezone}
-              label="Timezone"
+              label={t('settings.timezone')}
               onChange={(e) => setTimezone(e.target.value)}
             >
               <MenuItem value="UTC">UTC</MenuItem>
@@ -493,10 +499,10 @@ const LanguageSettings = ({ showSnackbar }) => {
 
         <Grid item xs={12}>
           <FormControl fullWidth>
-            <InputLabel>Date Format</InputLabel>
+            <InputLabel>{t('settings.dateFormat')}</InputLabel>
             <Select
               value={dateFormat}
-              label="Date Format"
+              label={t('settings.dateFormat')}
               onChange={(e) => setDateFormat(e.target.value)}
             >
               <MenuItem value="MM/DD/YYYY">MM/DD/YYYY</MenuItem>
@@ -509,7 +515,7 @@ const LanguageSettings = ({ showSnackbar }) => {
 
       <Box sx={{ mt: 3 }}>
         <Button variant="contained" onClick={handleSave}>
-          Save Preferences
+          {t('settings.savePreferences')}
         </Button>
       </Box>
     </Box>

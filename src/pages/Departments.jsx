@@ -60,7 +60,7 @@ const Departments = () => {
   const fetchDepartments = async () => {
     try {
       setLoading(true)
-      const response = await api.get('/api/departments')
+      const response = await api.get('/department')
       setDepartments(response.data.data || [])
     } catch (err) {
       console.error('Failed to fetch departments:', err)
@@ -72,37 +72,37 @@ const Departments = () => {
 
   const handleAdd = async () => {
     try {
-      await api.post('/api/departments', formData)
+      await api.post('/department', formData)
       setSuccess('Department created successfully!')
       setAddDialogOpen(false)
       setFormData({ name: '', description: '', managerId: '' })
       await fetchDepartments()
     } catch (err) {
-      setError('Failed to create department. Please try again.')
+      setError(err.response?.data?.message || 'Failed to create department. Please try again.')
     }
   }
 
   const handleEdit = async () => {
     try {
-      await api.put(`/api/departments/${selectedDepartment.id}`, formData)
+      await api.put(`/department/${selectedDepartment.id}`, formData)
       setSuccess('Department updated successfully!')
       setEditDialogOpen(false)
       setSelectedDepartment(null)
       setFormData({ name: '', description: '', managerId: '' })
       await fetchDepartments()
     } catch (err) {
-      setError('Failed to update department. Please try again.')
+      setError(err.response?.data?.message || 'Failed to update department. Please try again.')
     }
   }
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this department?')) {
       try {
-        await api.delete(`/api/departments/${id}`)
+        await api.delete(`/department/${id}`)
         setSuccess('Department deleted successfully!')
         await fetchDepartments()
       } catch (err) {
-        setError('Failed to delete department. Please try again.')
+        setError(err.response?.data?.message || 'Failed to delete department. Please try again.')
       }
     }
   }

@@ -130,7 +130,7 @@ const Payment = () => {
     { code: 'AU', name: 'Australia', flag: '🇦🇺' }
   ];
 
-  const steps = ['Company Information', 'Select Plan', 'Payment Details', 'Confirmation'];
+  const steps = [t('payment.companyInformation'), t('payment.selectPlan'), t('payment.paymentDetails'), t('payment.confirmation')];
 
   useEffect(() => {
     // Pre-fill company info from URL params if available
@@ -181,7 +181,7 @@ const Payment = () => {
         totalAmount: calculatePrice()
       };
 
-      const response = await api.post('/api/payment/process', paymentData);
+      const response = await api.post('/payment/process', paymentData);
       
       if (response.data.success) {
         setSuccess('Payment processed successfully! Your account is being set up...');
@@ -203,12 +203,12 @@ const Payment = () => {
 
   const renderCompanyInfo = () => (
     <Box>
-      <Typography variant="h6" gutterBottom>Company Information</Typography>
+      <Typography variant="h6" gutterBottom>{t('payment.companyInformation')}</Typography>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Company Name"
+            label={t('payment.companyName')}
             value={companyInfo.name}
             onChange={(e) => handleCompanyInfoChange('name', e.target.value)}
             required
@@ -217,7 +217,7 @@ const Payment = () => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Contact Email"
+            label={t('payment.contactEmail')}
             type="email"
             value={companyInfo.contactEmail}
             onChange={(e) => handleCompanyInfoChange('contactEmail', e.target.value)}
@@ -227,7 +227,7 @@ const Payment = () => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Phone Number"
+            label={t('payment.phoneNumber')}
             value={companyInfo.phone}
             onChange={(e) => handleCompanyInfoChange('phone', e.target.value)}
             required
@@ -235,14 +235,14 @@ const Payment = () => {
         </Grid>
         <Grid item xs={12} md={6}>
           <FormControl fullWidth>
-            <InputLabel>Country</InputLabel>
+            <InputLabel>{t('payment.country')}</InputLabel>
             <Select
               value={companyInfo.country}
               onChange={(e) => handleCompanyInfoChange('country', e.target.value)}
             >
               {countries.map(country => (
                 <MenuItem key={country.code} value={country.code}>
-                  {country.flag} {country.name}
+                  {country.flag} {t(`payment.${country.code === 'TR' ? 'turkey' : country.code === 'US' ? 'unitedStates' : country.code === 'GB' ? 'unitedKingdom' : country.code === 'DE' ? 'germany' : country.code === 'FR' ? 'france' : country.code === 'IT' ? 'italy' : country.code === 'ES' ? 'spain' : country.code === 'NL' ? 'netherlands' : country.code === 'CA' ? 'canada' : country.code === 'AU' ? 'australia' : country.name.toLowerCase()}`) || country.name}
                 </MenuItem>
               ))}
             </Select>
@@ -251,7 +251,7 @@ const Payment = () => {
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="Address"
+            label={t('payment.address')}
             multiline
             rows={3}
             value={companyInfo.address}
@@ -261,7 +261,7 @@ const Payment = () => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Tax Number"
+            label={t('payment.taxNumber')}
             value={companyInfo.taxNumber}
             onChange={(e) => handleCompanyInfoChange('taxNumber', e.target.value)}
           />
@@ -269,7 +269,7 @@ const Payment = () => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Contact Person"
+            label={t('payment.contactPerson')}
             value={companyInfo.contactPerson}
             onChange={(e) => handleCompanyInfoChange('contactPerson', e.target.value)}
           />
@@ -280,18 +280,18 @@ const Payment = () => {
 
   const renderPlanSelection = () => (
     <Box>
-      <Typography variant="h6" gutterBottom>Select Your Plan</Typography>
+      <Typography variant="h6" gutterBottom>{t('payment.selectYourPlan')}</Typography>
       
       <FormControl component="fieldset" sx={{ mb: 3 }}>
-        <FormLabel component="legend">Billing Cycle</FormLabel>
+        <FormLabel component="legend">{t('payment.billingCycle')}</FormLabel>
         <RadioGroup
           row
           value={subscription.billingCycle}
           onChange={(e) => handleSubscriptionChange('billingCycle', e.target.value)}
         >
-          <FormControlLabel value="MONTHLY" control={<Radio />} label="Monthly" />
-          <FormControlLabel value="ANNUAL" control={<Radio />} label="Annual (Save 20%)" />
-          <FormControlLabel value="LIFETIME" control={<Radio />} label="Lifetime (10x Monthly)" />
+          <FormControlLabel value="MONTHLY" control={<Radio />} label={t('payment.monthly')} />
+          <FormControlLabel value="ANNUAL" control={<Radio />} label={t('payment.annual')} />
+          <FormControlLabel value="LIFETIME" control={<Radio />} label={t('payment.lifetime')} />
         </RadioGroup>
       </FormControl>
 
@@ -308,7 +308,7 @@ const Payment = () => {
               onClick={() => handleSubscriptionChange('plan', plan.id)}
             >
               <CardContent>
-                <Typography variant="h6" gutterBottom>{plan.name}</Typography>
+                <Typography variant="h6" gutterBottom>{t(`payment.${plan.name.toLowerCase()}`) || plan.name}</Typography>
                 <Typography variant="h4" color="primary" gutterBottom>
                   ${plan.price[subscription.billingCycle.toLowerCase()]}
                   <Typography component="span" variant="body2" color="text.secondary">
@@ -316,7 +316,7 @@ const Payment = () => {
                   </Typography>
                 </Typography>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Up to {plan.employees} employees
+                  {plan.employees === 'Unlimited' ? t('payment.unlimitedEmployees') : t('payment.upToEmployees', { count: plan.employees })}
                 </Typography>
                 <Divider sx={{ my: 2 }} />
                 {plan.features.map((feature, index) => (
@@ -334,10 +334,10 @@ const Payment = () => {
 
   const renderPaymentDetails = () => (
     <Box>
-      <Typography variant="h6" gutterBottom>Payment Details</Typography>
+      <Typography variant="h6" gutterBottom>{t('payment.paymentDetails')}</Typography>
       
       <FormControl component="fieldset" sx={{ mb: 3 }}>
-        <FormLabel component="legend">Payment Method</FormLabel>
+        <FormLabel component="legend">{t('payment.paymentMethod')}</FormLabel>
         <RadioGroup
           value={paymentMethod}
           onChange={(e) => setPaymentMethod(e.target.value)}
@@ -351,9 +351,12 @@ const Payment = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   {method.icon}
                   <Box>
-                    <Typography variant="body1">{method.name}</Typography>
+                    <Typography variant="body1">{method.id === 'STRIPE' ? t('payment.creditCard') : method.name}</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {method.description}
+                      {method.id === 'STRIPE' ? t('payment.visaMastercardAmex') : 
+                       method.id === 'IYZICO' ? t('payment.turkishPaymentGateway') :
+                       method.id === 'PAYTR' ? t('payment.turkishOnlinePayment') :
+                       method.id === 'PAYPAL' ? t('payment.paypalAccountPayment') : method.description}
                     </Typography>
                   </Box>
                 </Box>
@@ -368,7 +371,7 @@ const Payment = () => {
           <Grid item xs={12}>
             <TextField
               fullWidth
-              label="Card Number"
+              label={t('payment.cardNumber')}
               value={paymentDetails.cardNumber}
               onChange={(e) => handlePaymentDetailsChange('cardNumber', e.target.value)}
               placeholder="1234 5678 9012 3456"
@@ -377,7 +380,7 @@ const Payment = () => {
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Expiry Date"
+              label={t('payment.expiryDate')}
               value={paymentDetails.expiryDate}
               onChange={(e) => handlePaymentDetailsChange('expiryDate', e.target.value)}
               placeholder="MM/YY"
@@ -386,7 +389,7 @@ const Payment = () => {
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="CVV"
+              label={t('payment.cvv')}
               value={paymentDetails.cvv}
               onChange={(e) => handlePaymentDetailsChange('cvv', e.target.value)}
               placeholder="123"
@@ -395,7 +398,7 @@ const Payment = () => {
           <Grid item xs={12}>
             <TextField
               fullWidth
-              label="Cardholder Name"
+              label={t('payment.cardholderName')}
               value={paymentDetails.cardholderName}
               onChange={(e) => handlePaymentDetailsChange('cardholderName', e.target.value)}
             />
@@ -404,18 +407,18 @@ const Payment = () => {
       )}
 
       <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-        <Typography variant="h6" gutterBottom>Order Summary</Typography>
+        <Typography variant="h6" gutterBottom>{t('payment.orderSummary')}</Typography>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Typography>Plan: {subscriptionPlans.find(p => p.id === subscription.plan)?.name}</Typography>
+          <Typography>{t('payment.plan')}: {subscriptionPlans.find(p => p.id === subscription.plan)?.name}</Typography>
           <Typography>${calculatePrice()}</Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Typography>Billing: {subscription.billingCycle}</Typography>
+          <Typography>{t('payment.billingCycle')}: {subscription.billingCycle}</Typography>
           <Typography>-</Typography>
         </Box>
         <Divider sx={{ my: 1 }} />
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography variant="h6">Total</Typography>
+          <Typography variant="h6">{t('payment.total')}</Typography>
           <Typography variant="h6">${calculatePrice()}</Typography>
         </Box>
       </Box>
@@ -424,12 +427,12 @@ const Payment = () => {
 
   const renderConfirmation = () => (
     <Box>
-      <Typography variant="h6" gutterBottom>Confirm Your Order</Typography>
+      <Typography variant="h6" gutterBottom>{t('payment.confirmYourOrder')}</Typography>
       
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle1" gutterBottom>Company Information</Typography>
+            <Typography variant="subtitle1" gutterBottom>{t('payment.companyInformation')}</Typography>
             <Typography variant="body2">{companyInfo.name}</Typography>
             <Typography variant="body2">{companyInfo.contactEmail}</Typography>
             <Typography variant="body2">{companyInfo.phone}</Typography>
@@ -438,15 +441,15 @@ const Payment = () => {
         </Grid>
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle1" gutterBottom>Subscription Details</Typography>
+            <Typography variant="subtitle1" gutterBottom>{t('payment.subscriptionDetails')}</Typography>
             <Typography variant="body2">
-              Plan: {subscriptionPlans.find(p => p.id === subscription.plan)?.name}
+              {t('payment.plan')}: {subscriptionPlans.find(p => p.id === subscription.plan)?.name}
             </Typography>
             <Typography variant="body2">
-              Billing: {subscription.billingCycle}
+              {t('payment.billingCycle')}: {subscription.billingCycle}
             </Typography>
             <Typography variant="body2">
-              Total: ${calculatePrice()}
+              {t('payment.total')}: ${calculatePrice()}
             </Typography>
           </Paper>
         </Grid>
@@ -517,7 +520,7 @@ const Payment = () => {
               disabled={loading}
               startIcon={loading ? <CircularProgress size={20} /> : <CheckCircleIcon />}
             >
-              {loading ? 'Processing...' : 'Complete Payment'}
+              {loading ? t('payment.processing') : t('payment.completePayment')}
             </Button>
           ) : (
             <Button

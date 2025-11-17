@@ -10,10 +10,15 @@ i18n
       en: { translation: en },
       tr: { translation: tr }
     },
-    lng: 'en',
+    lng: localStorage.getItem('language') || 'en',
     fallbackLng: 'en',
+    returnEmptyString: false,
+    returnNull: false,
     interpolation: {
       escapeValue: false
+    },
+    react: {
+      useSuspense: false
     }
   })
 

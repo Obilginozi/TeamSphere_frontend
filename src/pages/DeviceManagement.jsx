@@ -82,7 +82,7 @@ const DeviceManagement = () => {
   const fetchDevices = async () => {
     try {
       setLoading(true)
-      const response = await api.get('/api/devices')
+      const response = await api.get('/devices')
       setDevices(response.data.data || [])
       setFilteredDevices(response.data.data || [])
     } catch (err) {
@@ -95,7 +95,7 @@ const DeviceManagement = () => {
 
   const handleAddDevice = async () => {
     try {
-      await api.post('/api/devices', newDevice)
+      await api.post('/devices', newDevice)
       setSuccess('Device added successfully!')
       setAddDialogOpen(false)
       setNewDevice({
@@ -295,7 +295,7 @@ const DeviceManagement = () => {
         <CardContent>
           <TextField
             fullWidth
-            placeholder="Search by employee, device name, or device ID..."
+            placeholder={t('deviceManagement.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             InputProps={{
@@ -340,7 +340,7 @@ const DeviceManagement = () => {
                       <TableCell>
                         <Box display="flex" alignItems="center" gap={1}>
                           {getDeviceIcon(device.deviceType)}
-                          <Typography>{device.deviceName || 'Unknown Device'}</Typography>
+                          <Typography>{device.deviceName || t('deviceManagement.unknownDevice')}</Typography>
                         </Box>
                       </TableCell>
                       <TableCell>{device.employeeName || 'N/A'}</TableCell>
@@ -364,7 +364,7 @@ const DeviceManagement = () => {
                         <TableCell align="right">
                           <Box display="flex" justifyContent="flex-end" gap={1}>
                             {device.status === 'ACTIVE' ? (
-                              <Tooltip title="Block Device">
+                              <Tooltip title={t('deviceManagement.blockDevice')}>
                                 <IconButton
                                   size="small"
                                   color="error"
@@ -377,7 +377,7 @@ const DeviceManagement = () => {
                                 </IconButton>
                               </Tooltip>
                             ) : (
-                              <Tooltip title="Unblock Device">
+                              <Tooltip title={t('deviceManagement.unblockDevice')}>
                                 <IconButton
                                   size="small"
                                   color="success"
@@ -387,7 +387,7 @@ const DeviceManagement = () => {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title="Delete Device">
+                            <Tooltip title={t('deviceManagement.deleteDevice')}>
                               <IconButton
                                 size="small"
                                 color="error"
@@ -410,13 +410,13 @@ const DeviceManagement = () => {
 
       {/* Add Device Dialog */}
       <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add New Device</DialogTitle>
+        <DialogTitle>{t('deviceManagement.addNewDevice')}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Employee ID"
+                label={t('deviceManagement.employeeId')}
                 type="number"
                 value={newDevice.employeeId}
                 onChange={(e) => setNewDevice({ ...newDevice, employeeId: e.target.value })}
@@ -427,7 +427,7 @@ const DeviceManagement = () => {
               <TextField
                 fullWidth
                 select
-                label="Device Type"
+                label={t('deviceManagement.deviceType')}
                 value={newDevice.deviceType}
                 onChange={(e) => setNewDevice({ ...newDevice, deviceType: e.target.value })}
                 SelectProps={{ native: true }}
@@ -441,7 +441,7 @@ const DeviceManagement = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Device Name"
+                label={t('deviceManagement.deviceName')}
                 value={newDevice.deviceName}
                 onChange={(e) => setNewDevice({ ...newDevice, deviceName: e.target.value })}
                 placeholder="e.g., iPhone 13 Pro"
@@ -450,20 +450,20 @@ const DeviceManagement = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Device ID"
+                label={t('deviceManagement.deviceId')}
                 value={newDevice.deviceId}
                 onChange={(e) => setNewDevice({ ...newDevice, deviceId: e.target.value })}
                 required
-                helperText="Unique identifier for this device"
+                helperText={t('deviceManagement.uniqueIdentifier')}
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Device Fingerprint (Optional)"
+                label={t('deviceManagement.deviceFingerprintOptional')}
                 value={newDevice.fingerprint}
                 onChange={(e) => setNewDevice({ ...newDevice, fingerprint: e.target.value })}
-                helperText="Additional security fingerprint"
+                helperText={t('deviceManagement.additionalSecurityFingerprint')}
               />
             </Grid>
           </Grid>

@@ -13,6 +13,19 @@ api.interceptors.request.use(
     const token = localStorage.getItem('token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+      
+      // For admin users, add X-Company-Id header if a company is selected
+      try {
+        const decoded = JSON.parse(atob(token.split('.')[1]))
+        if (decoded.role === 'ADMIN') {
+          const selectedCompanyId = localStorage.getItem('selectedCompanyId')
+          if (selectedCompanyId) {
+            config.headers['X-Company-Id'] = selectedCompanyId
+          }
+        }
+      } catch (e) {
+        // Ignore JWT decode errors
+      }
     }
     return config
   },

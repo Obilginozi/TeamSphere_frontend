@@ -14,10 +14,10 @@ const Accounting = () => {
       <Paper sx={{ p: 3, textAlign: 'center' }}>
         <AccountBalance sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
         <Typography variant="h6" gutterBottom>
-          Accounting Integration
+          {t('accounting.integrationTitle')}
         </Typography>
         <Typography variant="body1" color="text.secondary" paragraph>
-          Integrate with Logo accounting software for payroll and employee data sync.
+          {t('accounting.integrationDescription')}
         </Typography>
         <Button variant="contained" size="large">
           {t('accounting.syncPayroll')}

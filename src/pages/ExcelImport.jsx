@@ -42,7 +42,7 @@ const ExcelImport = () => {
 
   const handleDownloadTemplate = async () => {
     try {
-      const response = await api.get('/api/excel/template/employees', {
+      const response = await api.get('/excel/template/employees', {
         responseType: 'blob'
       })
       
@@ -70,7 +70,7 @@ const ExcelImport = () => {
     try {
       setUploading(true)
       setError(null)
-      const response = await api.post('/api/excel/import/employees', formData, {
+      const response = await api.post('/excel/import/employees', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -225,7 +225,7 @@ const ExcelImport = () => {
                 <Divider sx={{ my: 2 }} />
                 <Typography variant="subtitle1" color="error" gutterBottom>
                   <ErrorIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
-                  Errors ({result.errors.length})
+                  {t('excelImport.errors')} ({result.errors.length})
                 </Typography>
                 <List dense>
                   {result.errors.map((error, index) => (
@@ -244,7 +244,7 @@ const ExcelImport = () => {
               <>
                 <Divider sx={{ my: 2 }} />
                 <Typography variant="subtitle1" color="warning.main" gutterBottom>
-                  Warnings ({result.warnings.length})
+                  {t('excelImport.warnings')} ({result.warnings.length})
                 </Typography>
                 <List dense>
                   {result.warnings.map((warning, index) => (
@@ -261,9 +261,9 @@ const ExcelImport = () => {
 
             {result.successCount > 0 && (
               <Alert severity="success" sx={{ mt: 2 }}>
-                <AlertTitle>Import Completed Successfully</AlertTitle>
-                {result.successCount} employee(s) have been imported successfully.
-                Default password for new employees is: <strong>Welcome123!</strong>
+                <AlertTitle>{t('excelImport.importCompletedSuccessfully')}</AlertTitle>
+                {t('excelImport.employeesImported', { count: result.successCount })}
+                {t('excelImport.defaultPassword')} <strong>Welcome123!</strong>
               </Alert>
             )}
           </CardContent>

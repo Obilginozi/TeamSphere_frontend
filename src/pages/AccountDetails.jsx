@@ -307,13 +307,13 @@ const AccountDetails = () => {
             <div className="space-y-4">
               <div className="bg-white p-4 rounded border">
                 <p className="text-sm text-gray-600 mb-2">
-                  To submit a support ticket, please visit the Support Tickets page from your dashboard.
+                  To submit a ticket, please visit the Tickets page from your dashboard.
                 </p>
                 <button
-                  onClick={() => window.location.href = '/support-tickets'}
+                  onClick={() => window.location.href = '/tickets'}
                   className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                 >
-                  Go to Support Tickets
+                  Go to Tickets
                 </button>
               </div>
             </div>

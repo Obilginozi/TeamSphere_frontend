@@ -3,6 +3,11 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import { CssBaseline } from '@mui/material'
 import { QueryClient, QueryClientProvider } from 'react-query'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import dayjs from 'dayjs'
+import 'dayjs/locale/tr'
+import 'dayjs/locale/en'
 import { AuthProvider } from './contexts/AuthContext'
 import { LanguageProvider } from './contexts/LanguageContext'
 import Layout from './components/Layout'
@@ -22,8 +27,8 @@ import WorkdayReports from './pages/WorkdayReports'
 import CompanySelector from './components/CompanySelector'
 import ProtectedRoute from './components/ProtectedRoute'
 import SystemMonitoring from './pages/SystemMonitoring'
+import AdminDashboard from './pages/AdminDashboard'
 import ExcelImport from './pages/ExcelImport'
-import SupportTickets from './pages/SupportTickets'
 import WikiViewer from './pages/WikiViewer'
 import BackupExport from './pages/BackupExport'
 import AdminTicketManagement from './pages/AdminTicketManagement'
@@ -42,6 +47,7 @@ import CompanySetupWizard from './pages/CompanySetupWizard'
 import BulkEmployeeImport from './pages/BulkEmployeeImport'
 import Payment from './pages/Payment'
 import CompanyDirectory from './pages/CompanyDirectory'
+import CompanyEdit from './pages/CompanyEdit'
 
 const theme = createTheme({
   palette: {
@@ -70,13 +76,18 @@ const queryClient = new QueryClient({
 })
 
 function App() {
+  const currentLanguage = localStorage.getItem('language') || 'en'
+  // Set dayjs locale globally
+  dayjs.locale(currentLanguage === 'tr' ? 'tr' : 'en')
+  
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <LanguageProvider>
-          <Router>
-            <AuthProvider>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={currentLanguage === 'tr' ? 'tr' : 'en'}>
+          <LanguageProvider>
+            <Router>
+              <AuthProvider>
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/payment" element={<Payment />} />
@@ -91,6 +102,7 @@ function App() {
                   {/* Role-specific Dashboards */}
                   <Route path="hr-dashboard" element={<HRDashboard />} />
                   <Route path="employee-dashboard" element={<EmployeeDashboard />} />
+                  <Route path="admin-dashboard" element={<AdminDashboard />} />
                   <Route path="system-monitoring" element={<SystemMonitoring />} />
                   
                   {/* Employee Management */}
@@ -110,7 +122,6 @@ function App() {
                   
                   {/* Support & Communication */}
                   <Route path="tickets" element={<Tickets />} />
-                  <Route path="support-tickets" element={<SupportTickets />} />
                   <Route path="admin-tickets" element={<AdminTicketManagement />} />
                   <Route path="notifications" element={<Notifications />} />
                   <Route path="announcements" element={<Announcements />} />
@@ -127,6 +138,7 @@ function App() {
                   <Route path="profile" element={<Profile />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="account" element={<AccountDetails />} />
+                  <Route path="company-edit" element={<CompanyEdit />} />
                   
                   {/* Admin & System */}
                   <Route path="companies" element={<CompanyManagement />} />
@@ -141,6 +153,7 @@ function App() {
             </AuthProvider>
           </Router>
         </LanguageProvider>
+        </LocalizationProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )

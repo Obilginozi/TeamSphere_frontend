@@ -44,8 +44,7 @@ const Announcements = () => {
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    priority: 'NORMAL',
-    isPinned: false
+    isActive: true
   })
 
   useEffect(() => {
@@ -55,11 +54,13 @@ const Announcements = () => {
   const fetchAnnouncements = async () => {
     try {
       setLoading(true)
-      const response = await api.get('/api/announcements')
+      setError(null)
+      const endpoint = (user?.role === 'ADMIN' || user?.role === 'HR') ? '/announcements' : '/announcements/active'
+      const response = await api.get(endpoint)
       setAnnouncements(response.data.data || [])
     } catch (err) {
       console.error('Failed to fetch announcements:', err)
-      setError('Failed to load announcements. Please try again.')
+      setError(t('announcements.failedToLoad'))
     } finally {
       setLoading(false)
     }
@@ -67,44 +68,54 @@ const Announcements = () => {
 
   const handleAdd = async () => {
     try {
-      await api.post('/api/announcements', formData)
-      setSuccess('Announcement created successfully!')
+      setError(null)
+      const announcementData = {
+        title: formData.title,
+        content: formData.content,
+        isActive: true
+      }
+      await api.post('/announcements', announcementData)
+      setSuccess(t('announcements.announcementCreated'))
+      setTimeout(() => setSuccess(null), 3000)
       handleCloseDialog()
       await fetchAnnouncements()
     } catch (err) {
-      setError('Failed to create announcement. Please try again.')
+      setError(t('announcements.failedToCreate'))
+      console.error('Create announcement error:', err)
     }
   }
 
   const handleEdit = async () => {
     try {
-      await api.put(`/api/announcements/${selectedAnnouncement.id}`, formData)
-      setSuccess('Announcement updated successfully!')
+      setError(null)
+      const announcementData = {
+        title: formData.title,
+        content: formData.content,
+        isActive: formData.isActive !== undefined ? formData.isActive : true
+      }
+      await api.put(`/announcements/${selectedAnnouncement.id}`, announcementData)
+      setSuccess(t('announcements.announcementUpdated'))
+      setTimeout(() => setSuccess(null), 3000)
       handleCloseDialog()
       await fetchAnnouncements()
     } catch (err) {
-      setError('Failed to update announcement. Please try again.')
+      setError(t('announcements.failedToUpdate'))
+      console.error('Update announcement error:', err)
     }
   }
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this announcement?')) {
+    if (window.confirm(t('announcements.confirmDelete'))) {
       try {
-        await api.delete(`/api/announcements/${id}`)
-        setSuccess('Announcement deleted successfully!')
+        setError(null)
+        await api.delete(`/announcements/${id}`)
+        setSuccess(t('announcements.announcementDeleted'))
+        setTimeout(() => setSuccess(null), 3000)
         await fetchAnnouncements()
       } catch (err) {
-        setError('Failed to delete announcement. Please try again.')
+        setError(t('announcements.failedToDelete'))
+        console.error('Delete announcement error:', err)
       }
-    }
-  }
-
-  const handlePin = async (id) => {
-    try {
-      await api.put(`/api/announcements/${id}/pin`)
-      await fetchAnnouncements()
-    } catch (err) {
-      setError('Failed to pin announcement.')
     }
   }
 
@@ -113,15 +124,14 @@ const Announcements = () => {
       setEditMode(true)
       setSelectedAnnouncement(announcement)
       setFormData({
-        title: announcement.title,
-        content: announcement.content,
-        priority: announcement.priority,
-        isPinned: announcement.isPinned
+        title: announcement.title || '',
+        content: announcement.content || '',
+        isActive: announcement.isActive !== undefined ? announcement.isActive : true
       })
     } else {
       setEditMode(false)
       setSelectedAnnouncement(null)
-      setFormData({ title: '', content: '', priority: 'NORMAL', isPinned: false })
+      setFormData({ title: '', content: '', isActive: true })
     }
     setDialogOpen(true)
   }
@@ -130,16 +140,7 @@ const Announcements = () => {
     setDialogOpen(false)
     setEditMode(false)
     setSelectedAnnouncement(null)
-    setFormData({ title: '', content: '', priority: 'NORMAL', isPinned: false })
-  }
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'HIGH': return 'error'
-      case 'NORMAL': return 'primary'
-      case 'LOW': return 'default'
-      default: return 'default'
-    }
+    setFormData({ title: '', content: '', isActive: true })
   }
 
   const canManage = user?.role === 'ADMIN' || user?.role === 'HR'
@@ -152,8 +153,8 @@ const Announcements = () => {
     )
   }
 
-  const pinnedAnnouncements = announcements.filter(a => a.isPinned)
-  const regularAnnouncements = announcements.filter(a => !a.isPinned)
+  const activeAnnouncements = announcements.filter(a => a.isActive !== false)
+  const inactiveAnnouncements = announcements.filter(a => a.isActive === false)
 
   return (
     <Box>
@@ -161,10 +162,10 @@ const Announcements = () => {
       <Box mb={4} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
         <Box>
           <Typography variant="h4" gutterBottom>
-            Company Announcements
+            {t('announcements.title')}
           </Typography>
           <Typography variant="body2" color="textSecondary">
-            Important updates and news for all employees
+            {t('announcements.subtitle')}
           </Typography>
         </Box>
         <Box display="flex" gap={2}>
@@ -174,7 +175,7 @@ const Announcements = () => {
             onClick={fetchAnnouncements}
             disabled={loading}
           >
-            Refresh
+            {t('announcements.refresh')}
           </Button>
           {canManage && (
             <Button
@@ -182,7 +183,7 @@ const Announcements = () => {
               startIcon={<AddIcon />}
               onClick={() => handleOpenDialog()}
             >
-              New Announcement
+              {t('announcements.createAnnouncement')}
             </Button>
           )}
         </Box>
@@ -200,83 +201,17 @@ const Announcements = () => {
         </Alert>
       )}
 
-      {/* Pinned Announcements */}
-      {pinnedAnnouncements.length > 0 && (
-        <Box mb={4}>
-          <Box display="flex" alignItems="center" gap={1} mb={2}>
-            <PushPinIcon color="primary" />
-            <Typography variant="h6">Pinned Announcements</Typography>
-          </Box>
-          <Grid container spacing={3}>
-            {pinnedAnnouncements.map((announcement) => (
-              <Grid item xs={12} key={announcement.id}>
-                <Card elevation={3} sx={{ borderTop: 3, borderColor: 'primary.main' }}>
-                  <CardContent>
-                    <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                      <Box flex={1}>
-                        <Box display="flex" alignItems="center" gap={1} mb={1}>
-                          <PushPinIcon color="primary" fontSize="small" />
-                          <Typography variant="h5">{announcement.title}</Typography>
-                          <Chip
-                            label={announcement.priority}
-                            color={getPriorityColor(announcement.priority)}
-                            size="small"
-                          />
-                        </Box>
-                        <Typography variant="body1" paragraph>
-                          {announcement.content}
-                        </Typography>
-                        <Box display="flex" alignItems="center" gap={2}>
-                          <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem' }}>
-                            {announcement.authorName?.charAt(0) || 'A'}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="caption" color="textSecondary">
-                              Posted by {announcement.authorName || 'Admin'}
-                            </Typography>
-                            <Typography variant="caption" display="block" color="textSecondary">
-                              {new Date(announcement.createdAt).toLocaleString()}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </Box>
-                      {canManage && (
-                        <Box display="flex" gap={1}>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleOpenDialog(announcement)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleDelete(announcement.id)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Box>
-                      )}
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      )}
-
-      {/* Regular Announcements */}
-      {regularAnnouncements.length === 0 && pinnedAnnouncements.length === 0 ? (
+      {/* Active Announcements */}
+      {activeAnnouncements.length === 0 && !canManage ? (
         <Paper sx={{ p: 5, textAlign: 'center' }}>
           <CampaignIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="textSecondary" gutterBottom>
-            No announcements yet
+            {t('announcements.noAnnouncementsYet')}
           </Typography>
           <Typography variant="body2" color="textSecondary" mb={2}>
             {canManage
-              ? "Create your first announcement to keep everyone informed"
-              : "Check back later for updates"}
+              ? t('announcements.createFirstAnnouncement')
+              : t('announcements.checkBackLater')}
           </Typography>
           {canManage && (
             <Button
@@ -284,86 +219,130 @@ const Announcements = () => {
               startIcon={<AddIcon />}
               onClick={() => handleOpenDialog()}
             >
-              Create First Announcement
+              {t('announcements.createFirst')}
             </Button>
           )}
         </Paper>
       ) : (
-        <Grid container spacing={3}>
-          {regularAnnouncements.map((announcement) => (
-            <Grid item xs={12} md={6} key={announcement.id}>
-              <Card>
-                <CardContent>
-                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                    <Box flex={1}>
-                      <Box display="flex" alignItems="center" gap={1} mb={1}>
-                        <Typography variant="h6">{announcement.title}</Typography>
-                        <Chip
-                          label={announcement.priority}
-                          color={getPriorityColor(announcement.priority)}
-                          size="small"
-                        />
-                      </Box>
-                    </Box>
-                    {canManage && (
-                      <Box display="flex" gap={1}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handlePin(announcement.id)}
-                        >
-                          <PushPinIcon />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleOpenDialog(announcement)}
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDelete(announcement.id)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Box>
-                    )}
-                  </Box>
-                  <Typography variant="body2" paragraph>
-                    {announcement.content}
-                  </Typography>
-                  <Divider sx={{ my: 2 }} />
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Avatar sx={{ width: 28, height: 28, fontSize: '0.75rem' }}>
-                      {announcement.authorName?.charAt(0) || 'A'}
-                    </Avatar>
-                    <Box>
-                      <Typography variant="caption" color="textSecondary">
-                        {announcement.authorName || 'Admin'}
-                      </Typography>
-                      <Typography variant="caption" display="block" color="textSecondary">
-                        {new Date(announcement.createdAt).toLocaleDateString()}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+        <>
+          {/* Active Announcements */}
+          {activeAnnouncements.length > 0 && (
+            <Box mb={4}>
+              <Typography variant="h6" gutterBottom>
+                {t('announcements.activeAnnouncements')}
+              </Typography>
+              <Grid container spacing={3}>
+                {activeAnnouncements.map((announcement) => (
+                  <Grid item xs={12} md={6} key={announcement.id}>
+                    <Card>
+                      <CardContent>
+                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                          <Box flex={1}>
+                            <Typography variant="h6" gutterBottom>
+                              {announcement.title}
+                            </Typography>
+                            <Typography variant="body2" paragraph sx={{ whiteSpace: 'pre-wrap' }}>
+                              {announcement.content}
+                            </Typography>
+                            <Divider sx={{ my: 2 }} />
+                            <Box display="flex" alignItems="center" gap={2}>
+                              <Avatar sx={{ width: 28, height: 28, fontSize: '0.75rem' }}>
+                                {announcement.createdBy?.firstName?.charAt(0) || 'A'}
+                              </Avatar>
+                              <Box>
+                                <Typography variant="caption" color="textSecondary">
+                                  {announcement.createdBy ? `${announcement.createdBy.firstName} ${announcement.createdBy.lastName}` : 'Admin'}
+                                </Typography>
+                                <Typography variant="caption" display="block" color="textSecondary">
+                                  {announcement.createdAt ? new Date(announcement.createdAt).toLocaleDateString() : 'N/A'}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </Box>
+                          {canManage && (
+                            <Box display="flex" gap={1}>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleOpenDialog(announcement)}
+                              >
+                                <EditIcon />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleDelete(announcement.id)}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Box>
+                          )}
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          )}
+
+          {/* Inactive Announcements (HR/Admin only) */}
+          {canManage && inactiveAnnouncements.length > 0 && (
+            <Box>
+              <Typography variant="h6" gutterBottom color="textSecondary">
+                {t('announcements.inactiveAnnouncements')}
+              </Typography>
+              <Grid container spacing={3}>
+                {inactiveAnnouncements.map((announcement) => (
+                  <Grid item xs={12} md={6} key={announcement.id}>
+                    <Card sx={{ opacity: 0.7 }}>
+                      <CardContent>
+                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                          <Box flex={1}>
+                            <Typography variant="h6" gutterBottom>
+                              {announcement.title}
+                            </Typography>
+                            <Typography variant="body2" paragraph sx={{ whiteSpace: 'pre-wrap' }}>
+                              {announcement.content}
+                            </Typography>
+                            <Chip label={t('announcements.inactive')} size="small" color="default" sx={{ mt: 1 }} />
+                          </Box>
+                          <Box display="flex" gap={1}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenDialog(announcement)}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDelete(announcement.id)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          )}
+        </>
       )}
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle>
-          {editMode ? 'Edit Announcement' : 'Create New Announcement'}
+          {editMode ? t('announcements.editAnnouncement') : t('announcements.createAnnouncement')}
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Title"
+                label={t('announcements.announcementTitle')}
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
@@ -372,7 +351,7 @@ const Announcements = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Content"
+                label={t('announcements.announcementContent')}
                 multiline
                 rows={6}
                 value={formData.content}
@@ -380,42 +359,30 @@ const Announcements = () => {
                 required
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                select
-                label="Priority"
-                value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                SelectProps={{ native: true }}
-              >
-                <option value="HIGH">High</option>
-                <option value="NORMAL">Normal</option>
-                <option value="LOW">Low</option>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                select
-                label="Pin Announcement"
-                value={formData.isPinned.toString()}
-                onChange={(e) => setFormData({ ...formData, isPinned: e.target.value === 'true' })}
-                SelectProps={{ native: true }}
-              >
-                <option value="false">No</option>
-                <option value="true">Yes (Pin to top)</option>
-              </TextField>
-            </Grid>
+            {editMode && (
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  select
+                  label="Status"
+                  value={formData.isActive ? 'true' : 'false'}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.value === 'true' })}
+                  SelectProps={{ native: true }}
+                >
+                  <option value="true">{t('announcements.active')}</option>
+                  <option value="false">{t('announcements.inactive')}</option>
+                </TextField>
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleCloseDialog}>{t('announcements.cancel')}</Button>
           <Button
             onClick={editMode ? handleEdit : handleAdd}
             variant="contained"
           >
-            {editMode ? 'Update' : 'Create'}
+            {editMode ? t('common.save') : t('common.add')}
           </Button>
         </DialogActions>
       </Dialog>
