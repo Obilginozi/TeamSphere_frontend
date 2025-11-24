@@ -10,6 +10,7 @@ import {
   Chip,
   List,
   ListItem,
+  ListItemAvatar,
   ListItemText,
   Alert,
   CircularProgress,
@@ -53,6 +54,7 @@ const EmployeeDashboard = () => {
     },
     recentAttendance: [],
     upcomingLeaves: [],
+    upcomingBirthdays: [],
     announcements: [],
     todaySchedule: null
   })
@@ -76,7 +78,7 @@ const EmployeeDashboard = () => {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
-        const [statsRes, historyRes, leavesRes, announcementsRes] = await Promise.all([
+        const [statsRes, historyRes, leavesRes, announcementsRes, birthdaysRes] = await Promise.all([
           api.get('/time-logs/my-stats', {
             params: {
               startDate: startOfMonth.toISOString().split('T')[0],
@@ -101,7 +103,8 @@ const EmployeeDashboard = () => {
             return { data: { data: { content: [] } } }
           }),
           api.get('/leave-requests/my').catch(() => ({ data: { data: [] } })),
-          api.get('/announcements/active').catch(() => ({ data: { data: [] } }))
+          api.get('/announcements/active').catch(() => ({ data: { data: [] } })),
+          api.get('/employee/upcoming-birthdays', { params: { daysAhead: 30 } }).catch(() => ({ data: { data: [] } }))
         ])
 
       // Calculate week stats from history
@@ -126,6 +129,28 @@ const EmployeeDashboard = () => {
       const employeeRes = await api.get('/employee/me').catch(() => ({ data: { data: {} } }))
       const leaveBalance = employeeRes.data.data?.annualLeaveBalance || 0
 
+      // Process upcoming birthdays
+      const employees = birthdaysRes.data.data || []
+      const today = new Date()
+      const upcomingBirthdays = employees
+        .slice(0, 5)
+        .map(emp => {
+          if (!emp.birthDate) return null
+          const birthDate = new Date(emp.birthDate)
+          const todayYear = today.getFullYear()
+          const thisYearBirthday = new Date(todayYear, birthDate.getMonth(), birthDate.getDate())
+          const nextYearBirthday = new Date(todayYear + 1, birthDate.getMonth(), birthDate.getDate())
+          const birthdayToShow = thisYearBirthday >= today ? thisYearBirthday : nextYearBirthday
+          
+          return {
+            id: emp.id,
+            name: emp.user ? `${emp.user.firstName} ${emp.user.lastName}` : t('common.not_available'),
+            department: emp.department?.name || t('common.not_available'),
+            birthday: dayjs(birthdayToShow).locale(i18n.language === 'tr' ? 'tr' : 'en').format('D MMM')
+          }
+        })
+        .filter(emp => emp !== null)
+
       setDashboardData({
         stats: {
           totalHoursThisWeek: Math.round(weekHours * 100) / 100,
@@ -143,6 +168,7 @@ const EmployeeDashboard = () => {
           status: log.status
         })),
         upcomingLeaves: upcomingLeaves.slice(0, 5),
+        upcomingBirthdays: upcomingBirthdays,
         announcements: announcementsRes.data.data || []
       })
     } catch (err) {
@@ -416,6 +442,37 @@ const EmployeeDashboard = () => {
                         label={leave.status || t('leaveRequests.approved')}
                         color={leave.status === 'APPROVED' ? 'success' : 'warning'}
                         size="small"
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Upcoming Birthdays */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                {t('employeeDashboard.upcomingBirthdays')}
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              {dashboardData.upcomingBirthdays.length === 0 ? (
+                <Typography color="textSecondary" align="center" py={3}>
+                  {t('employeeDashboard.noUpcomingBirthdays')}
+                </Typography>
+              ) : (
+                <List>
+                  {dashboardData.upcomingBirthdays.map((employee) => (
+                    <ListItem key={employee.id}>
+                      <ListItemAvatar>
+                        <Avatar>{employee.name?.charAt(0) || 'E'}</Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={employee.name}
+                        secondary={`${employee.department} • ${employee.birthday}`}
                       />
                     </ListItem>
                   ))}

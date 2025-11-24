@@ -10,6 +10,7 @@ import 'dayjs/locale/tr'
 import 'dayjs/locale/en'
 import { AuthProvider } from './contexts/AuthContext'
 import { LanguageProvider } from './contexts/LanguageContext'
+import { FeatureFlagProvider } from './contexts/FeatureFlagContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -17,6 +18,7 @@ import Employees from './pages/Employees'
 import TimeLogs from './pages/TimeLogs'
 import LeaveRequests from './pages/LeaveRequests'
 import Tickets from './pages/Tickets'
+import GeneralTickets from './pages/GeneralTickets'
 import AccessControl from './pages/AccessControl'
 import Accounting from './pages/Accounting'
 import Profile from './pages/Profile'
@@ -48,6 +50,7 @@ import BulkEmployeeImport from './pages/BulkEmployeeImport'
 import Payment from './pages/Payment'
 import CompanyDirectory from './pages/CompanyDirectory'
 import CompanyEdit from './pages/CompanyEdit'
+import CompanyFeatureFlags from './pages/CompanyFeatureFlags'
 
 const theme = createTheme({
   palette: {
@@ -88,6 +91,7 @@ function App() {
           <LanguageProvider>
             <Router>
               <AuthProvider>
+                <FeatureFlagProvider>
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/payment" element={<Payment />} />
@@ -122,6 +126,7 @@ function App() {
                   
                   {/* Support & Communication */}
                   <Route path="tickets" element={<Tickets />} />
+                  <Route path="general-tickets" element={<GeneralTickets />} />
                   <Route path="admin-tickets" element={<AdminTicketManagement />} />
                   <Route path="notifications" element={<Notifications />} />
                   <Route path="announcements" element={<Announcements />} />
@@ -142,17 +147,19 @@ function App() {
                   
                   {/* Admin & System */}
                   <Route path="companies" element={<CompanyManagement />} />
+                  <Route path="company-feature-flags" element={<CompanyFeatureFlags />} />
                   <Route path="monitoring" element={<Monitoring />} />
                   <Route path="excel-import" element={<ExcelImport />} />
                   <Route path="company-selector" element={<CompanySelector />} />
-                  <Route path="wiki" element={<WikiViewer />} />
+                  <Route path="wiki" element={<ProtectedRoute requiredRoles={['ADMIN']}><WikiViewer /></ProtectedRoute>} />
                   <Route path="company-setup" element={<CompanySetupWizard />} />
                   <Route path="bulk-import" element={<BulkEmployeeImport />} />
                 </Route>
               </Routes>
-            </AuthProvider>
-          </Router>
-        </LanguageProvider>
+                </FeatureFlagProvider>
+              </AuthProvider>
+            </Router>
+          </LanguageProvider>
         </LocalizationProvider>
       </ThemeProvider>
     </QueryClientProvider>

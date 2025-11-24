@@ -418,6 +418,143 @@ npm run build -- --analyze
 3. **Routing**: Verify route protection and redirects
 4. **API Calls**: Check network requests and responses
 
+## 🆕 Recent Features (v2.1.0+)
+
+### Company-Based Feature Flags
+
+The frontend implements a comprehensive feature flag system that dynamically shows/hides pages based on company configuration.
+
+#### FeatureFlagContext
+
+The `FeatureFlagContext` provides global access to feature flags:
+
+```javascript
+import { useFeatureFlags } from '../contexts/FeatureFlagContext'
+
+const MyComponent = () => {
+  const { isPageEnabled, featureFlags, loading } = useFeatureFlags()
+  
+  // Check if a page is enabled
+  if (!isPageEnabled('/accounting')) {
+    return <Navigate to="/dashboard" />
+  }
+  
+  return <div>Content</div>
+}
+```
+
+**Features:**
+- Automatic loading based on user's company
+- Admin can view flags for selected company
+- Route protection based on flags
+- Sidebar menu filtering
+- Default to enabled if flags not loaded
+
+#### ProtectedRoute Integration
+
+The `ProtectedRoute` component checks feature flags:
+
+```javascript
+const ProtectedRoute = ({ children, requiredRoles = [] }) => {
+  const { isPageEnabled } = useFeatureFlags()
+  const location = useLocation()
+  
+  // Check feature flag
+  if (!isPageEnabled(location.pathname)) {
+    return <Navigate to="/dashboard" />
+  }
+  
+  return children
+}
+```
+
+#### Layout Sidebar Filtering
+
+The sidebar automatically filters menu items based on feature flags:
+
+```javascript
+const filteredMenuItems = menuItems.filter(item => {
+  // Check role-based access
+  if (item.roles && !item.roles.includes(user?.role)) {
+    return false
+  }
+  // Check feature flag access
+  if (item.path && !isPageEnabled(item.path)) {
+    return false
+  }
+  return true
+})
+```
+
+### Wiki Page
+
+The wiki page (`/wiki`) provides comprehensive documentation access for admins.
+
+#### WikiViewer Component
+
+The `WikiViewer` component displays all project documentation:
+
+```javascript
+const WikiViewer = () => {
+  const [activeTab, setActiveTab] = useState('documentation')
+  const [docFiles, setDocFiles] = useState([])
+  const [wikiDocuments, setWikiDocuments] = useState([])
+  
+  // Fetches from:
+  // - /api/documentation (documentation files)
+  // - /admin/wiki (wiki articles)
+}
+```
+
+**Features:**
+- **Tabs**: Switch between "Documentation Files" and "Wiki Articles"
+- **Search**: Real-time search across all documentation
+- **Markdown Rendering**: Full markdown support with wiki styling
+- **PDF Support**: Download buttons for PDF files
+- **Swagger Link**: Direct link to Swagger API documentation
+- **Categories**: Files organized by type (README, guides, PDFs, etc.)
+
+**Access Control:**
+- Admin-only access
+- Protected route with `requiredRoles={['ADMIN']}`
+- Component-level redirect for non-admins
+
+#### Company Feature Flags Management
+
+The `CompanyFeatureFlags` page allows admins to manage feature flags:
+
+```javascript
+const CompanyFeatureFlags = () => {
+  // Company selector for admins
+  // Toggle switches for each page
+  // Save/refresh functionality
+}
+```
+
+**Features:**
+- Company selection (for admins viewing other companies)
+- Toggle switches for all pages
+- Real-time updates
+- Visual feedback on changes
+
+### Documentation Service
+
+The frontend integrates with the backend documentation service:
+
+```javascript
+// services/featureFlags.js
+export const getMyCompanyFeatureFlags = async () => {
+  const response = await api.get('/company-features/my-company')
+  return response.data.data
+}
+
+// services/documentation.js (if exists)
+export const getDocumentationFiles = async () => {
+  const response = await api.get('/documentation')
+  return response.data.data
+}
+```
+
 ## 📚 Additional Resources
 
 ### Documentation

@@ -37,10 +37,12 @@ import {
   BusinessCenter,
   Assessment,
   MonitorHeart,
-  Campaign
+  Campaign,
+  MenuBook
 } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useFeatureFlags } from '../contexts/FeatureFlagContext'
 import api from '../services/api'
 
 const drawerWidth = 240
@@ -58,6 +60,7 @@ const Layout = () => {
   const [companyData, setCompanyData] = useState(null)
   const [logoTimestamp, setLogoTimestamp] = useState(null)
   const [logoObjectUrl, setLogoObjectUrl] = useState(null)
+  const [adminLogoUrl, setAdminLogoUrl] = useState(null)
   const [profilePictureObjectUrl, setProfilePictureObjectUrl] = useState(null)
   const navigate = useNavigate()
   const location = useLocation()
@@ -164,9 +167,7 @@ const Layout = () => {
       
       const url = `/companies/logo?path=${encodeURIComponent(urlPath)}`
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Fetching logo from:', url, 'Original logoUrl:', logoUrl)
-      }
+      console.log('Fetching logo from:', url, 'Original logoUrl:', logoUrl, 'Processed urlPath:', urlPath)
       
       try {
         const response = await api.get(url, {
@@ -176,14 +177,14 @@ const Layout = () => {
           const blob = new Blob([response.data], { type: response.data.type || 'image/png' })
           const objectUrl = URL.createObjectURL(blob)
           setLogoObjectUrl(objectUrl)
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Logo fetched successfully as blob, size:', response.data.size, 'bytes')
-          }
+          console.log('✅ Logo fetched successfully as blob, size:', response.data.size, 'bytes', 'Object URL:', objectUrl)
+          // Update timestamp to force re-render
+          setLogoTimestamp(Date.now())
         } else {
           console.warn('Logo blob is empty or invalid')
         }
       } catch (fetchError) {
-        console.error('Failed to fetch logo as blob:', fetchError)
+        console.error('❌ Failed to fetch logo as blob:', fetchError)
         if (fetchError.response) {
           console.error('Response status:', fetchError.response.status)
           console.error('Response data:', fetchError.response.data)
@@ -286,6 +287,23 @@ const Layout = () => {
             }
             return null
           })
+          // Load admin logo
+          const fetchAdminLogo = async () => {
+            try {
+              const adminLogoPath = 'uploads/companies/mock_admin_logo.svg'
+              const url = `/companies/logo?path=${encodeURIComponent(adminLogoPath)}`
+              const response = await api.get(url, { responseType: 'blob' })
+              if (response.data && response.data.size > 0) {
+                const blob = new Blob([response.data], { type: response.data.type || 'image/svg+xml' })
+                const objectUrl = URL.createObjectURL(blob)
+                setAdminLogoUrl(objectUrl)
+              }
+            } catch (error) {
+              console.error('Failed to fetch admin logo:', error)
+              setAdminLogoUrl(null)
+            }
+          }
+          fetchAdminLogo()
         }
       } else if (user.role === 'HR' || user.role === 'EMPLOYEE') {
         // HR and Employee users are always tied to a company
@@ -377,22 +395,17 @@ const Layout = () => {
                 lastFetchedCompanyId.current = newCompanyData.id
                 lastFetchedLogoUrl.current = newCompanyData.logoUrl
                 
+                // Clear admin logo when company is selected
+                setAdminLogoUrl(prevUrl => {
+                  if (prevUrl) URL.revokeObjectURL(prevUrl)
+                  return null
+                })
+                
                 // Fetch logo if exists
                 if (newCompanyData.logoUrl) {
-                  const url = `/companies/logo?path=${encodeURIComponent(newCompanyData.logoUrl)}`
-                  try {
-                    const logoResponse = await api.get(url, { responseType: 'blob' })
-                    if (logoResponse.data && logoResponse.data.size > 0) {
-                      const blob = new Blob([logoResponse.data], { type: logoResponse.data.type || 'image/png' })
-                      const objectUrl = URL.createObjectURL(blob)
-                      setLogoObjectUrl(prevUrl => {
-                        if (prevUrl) URL.revokeObjectURL(prevUrl)
-                        return objectUrl
-                      })
-                    }
-                  } catch (err) {
-                    console.error('Failed to fetch logo after company switch:', err)
-                  }
+                  await fetchLogoAsBlob(newCompanyData.logoUrl)
+                  // Update timestamp to force re-render
+                  setLogoTimestamp(Date.now())
                 } else {
                   setLogoObjectUrl(prevUrl => {
                     if (prevUrl) URL.revokeObjectURL(prevUrl)
@@ -417,6 +430,29 @@ const Layout = () => {
           if (prevUrl) URL.revokeObjectURL(prevUrl)
           return null
         })
+        // Load admin logo
+        const fetchAdminLogo = async () => {
+          try {
+            const adminLogoPath = 'uploads/companies/mock_admin_logo.svg'
+            const url = `/companies/logo?path=${encodeURIComponent(adminLogoPath)}`
+            const response = await api.get(url, { responseType: 'blob' })
+            if (response.data && response.data.size > 0) {
+              const blob = new Blob([response.data], { type: response.data.type || 'image/svg+xml' })
+              const objectUrl = URL.createObjectURL(blob)
+              setAdminLogoUrl(prevUrl => {
+                if (prevUrl) URL.revokeObjectURL(prevUrl)
+                return objectUrl
+              })
+            }
+          } catch (error) {
+            console.error('Failed to fetch admin logo:', error)
+            setAdminLogoUrl(prevUrl => {
+              if (prevUrl) URL.revokeObjectURL(prevUrl)
+              return null
+            })
+          }
+        }
+        fetchAdminLogo()
       }
     }, [selectedCompanyId, user?.role])
 
@@ -458,6 +494,7 @@ const Layout = () => {
     },
     { text: t('navigation.companySetup'), icon: <Business />, path: '/company-setup', roles: ['ADMIN'] },
     { text: t('navigation.companyManagement'), icon: <Business />, path: '/companies', roles: ['ADMIN'] },
+    { text: 'Feature Flags', icon: <Security />, path: '/company-feature-flags', roles: ['ADMIN'] },
     { text: t('navigation.switchCompany'), icon: <BusinessCenter />, path: '/company-selector', roles: ['ADMIN'] },
   ]
   
@@ -477,6 +514,12 @@ const Layout = () => {
       icon: <Support />, 
       path: '/tickets',
       roles: ['HR']
+    },
+    { 
+      text: t('navigation.generalTickets') || 'General Tickets', 
+      icon: <Support />, 
+      path: '/general-tickets',
+      roles: ['HR', 'EMPLOYEE']
     },
     { text: t('navigation.editCompany'), icon: <Business />, path: '/company-edit', roles: ['HR', 'ADMIN'] },
     { text: t('navigation.accessControl'), icon: <Security />, path: '/access-control', roles: ['ADMIN', 'HR'] },
@@ -513,9 +556,18 @@ const Layout = () => {
     handleProfileMenuClose()
   }
 
+  const { isPageEnabled } = useFeatureFlags()
+  
   const filteredMenuItems = menuItems.filter(item => {
-    if (!item.roles) return true
-    return item.roles.includes(user?.role)
+    // Check role-based access
+    if (item.roles && !item.roles.includes(user?.role)) {
+      return false
+    }
+    // Check feature flag access
+    if (item.path && !isPageEnabled(item.path)) {
+      return false
+    }
+    return true
   })
 
   const drawer = (
@@ -531,12 +583,12 @@ const Layout = () => {
       }}>
         {drawerOpen ? (
           <>
-            {companyData?.logoUrl && logoObjectUrl && !(user?.role === 'ADMIN' && !selectedCompanyId) ? (
+            {((user?.role === 'ADMIN' && !selectedCompanyId && adminLogoUrl) || (companyData?.logoUrl && logoObjectUrl)) ? (
               <Box
                 component="img"
-                src={logoObjectUrl}
-                alt="Company Logo"
-                key={`${companyData.logoUrl}-${logoTimestamp}`} // Force re-render when logo changes
+                src={user?.role === 'ADMIN' && !selectedCompanyId && adminLogoUrl ? adminLogoUrl : logoObjectUrl}
+                alt={user?.role === 'ADMIN' && !selectedCompanyId ? "Admin Logo" : "Company Logo"}
+                key={user?.role === 'ADMIN' && !selectedCompanyId ? 'admin-logo' : `${companyData?.logoUrl}-${logoTimestamp}`}
                 sx={{
                   width: '100%',
                   maxWidth: drawerWidth - 32, // Full width minus padding (16px on each side)
@@ -549,7 +601,7 @@ const Layout = () => {
                 onClick={() => navigate('/dashboard')}
                 onError={(e) => {
                   if (process.env.NODE_ENV === 'development') {
-                    console.error('Failed to load logo image:', logoObjectUrl)
+                    console.error('Failed to load logo image:', user?.role === 'ADMIN' && !selectedCompanyId ? adminLogoUrl : logoObjectUrl)
                   }
                   e.target.style.display = 'none'
                 }}
@@ -562,12 +614,12 @@ const Layout = () => {
           </>
         ) : (
           <>
-            {companyData?.logoUrl && logoObjectUrl && !(user?.role === 'ADMIN' && !selectedCompanyId) ? (
+            {((user?.role === 'ADMIN' && !selectedCompanyId && adminLogoUrl) || (companyData?.logoUrl && logoObjectUrl)) ? (
               <Box
                 component="img"
-                src={logoObjectUrl}
-                alt="Company Logo"
-                key={`${companyData.logoUrl}-${logoTimestamp}`} // Force re-render when logo changes
+                src={user?.role === 'ADMIN' && !selectedCompanyId && adminLogoUrl ? adminLogoUrl : logoObjectUrl}
+                alt={user?.role === 'ADMIN' && !selectedCompanyId ? "Admin Logo" : "Company Logo"}
+                key={user?.role === 'ADMIN' && !selectedCompanyId ? 'admin-logo' : `${companyData?.logoUrl}-${logoTimestamp}`}
                 sx={{
                   width: 40,
                   height: 40,
@@ -580,7 +632,7 @@ const Layout = () => {
                 onClick={() => navigate('/dashboard')}
                 onError={(e) => {
                   if (process.env.NODE_ENV === 'development') {
-                    console.error('Failed to load logo image:', logoObjectUrl)
+                    console.error('Failed to load logo image:', user?.role === 'ADMIN' && !selectedCompanyId ? adminLogoUrl : logoObjectUrl)
                   }
                   e.target.style.display = 'none'
                 }}
@@ -594,49 +646,88 @@ const Layout = () => {
         )}
       </Toolbar>
       <Divider />
-      <List sx={{ flexGrow: 1 }}>
-        {filteredMenuItems.map((item) => {
-          // For ADMIN users, disable company-dependent items if no company is selected
-          const isAdmin = user?.role === 'ADMIN'
-          const requiresCompany = isAdmin && companyDependentItems.some(depItem => depItem.path === item.path)
-          const isDisabled = requiresCompany && !selectedCompanyId
-          
-          return (
-          <ListItem key={item.text} disablePadding>
-            <Tooltip 
-              title={!drawerOpen ? (isDisabled ? `${item.text} (Select a company first)` : item.text) : ''} 
-              placement="right"
-            >
-            <ListItemButton
-              selected={location.pathname === item.path}
-                disabled={isDisabled}
-              onClick={() => {
-                  if (!isDisabled) {
-                navigate(item.path)
-                if (isMobile) setMobileOpen(false)
-                  }
-                }}
-                sx={{
-                  minHeight: 48,
-                  justifyContent: drawerOpen ? 'initial' : 'center',
-                  px: 2.5,
-                }}
+      <List sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ flexGrow: 1 }}>
+          {filteredMenuItems.map((item) => {
+            // For ADMIN users, disable company-dependent items if no company is selected
+            const isAdmin = user?.role === 'ADMIN'
+            const requiresCompany = isAdmin && companyDependentItems.some(depItem => depItem.path === item.path)
+            const isDisabled = requiresCompany && !selectedCompanyId
+            
+            return (
+            <ListItem key={item.text} disablePadding>
+              <Tooltip 
+                title={!drawerOpen ? (isDisabled ? `${item.text} (Select a company first)` : item.text) : ''} 
+                placement="right"
               >
-                <ListItemIcon
+              <ListItemButton
+                selected={location.pathname === item.path}
+                  disabled={isDisabled}
+                onClick={() => {
+                    if (!isDisabled) {
+                  navigate(item.path)
+                  if (isMobile) setMobileOpen(false)
+                    }
+                  }}
                   sx={{
-                    minWidth: 0,
-                    mr: drawerOpen ? 3 : 'auto',
-                    justifyContent: 'center',
+                    minHeight: 48,
+                    justifyContent: drawerOpen ? 'initial' : 'center',
+                    px: 2.5,
                   }}
                 >
-                {item.icon}
-              </ListItemIcon>
-                {drawerOpen && <ListItemText primary={item.text} />}
-            </ListItemButton>
-            </Tooltip>
-          </ListItem>
-          )
-        })}
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 0,
+                      mr: drawerOpen ? 3 : 'auto',
+                      justifyContent: 'center',
+                    }}
+                  >
+                  {item.icon}
+                </ListItemIcon>
+                  {drawerOpen && <ListItemText primary={item.text} />}
+              </ListItemButton>
+              </Tooltip>
+            </ListItem>
+            )
+          })}
+        </Box>
+        
+        {/* Wiki section at the bottom, separated for ADMIN only */}
+        {user?.role === 'ADMIN' && isPageEnabled('/wiki') && (
+          <>
+            <Divider sx={{ my: 1 }} />
+            <ListItem disablePadding>
+              <Tooltip 
+                title={!drawerOpen ? 'Wiki Documentation' : ''} 
+                placement="right"
+              >
+                <ListItemButton
+                  selected={location.pathname === '/wiki'}
+                  onClick={() => {
+                    navigate('/wiki')
+                    if (isMobile) setMobileOpen(false)
+                  }}
+                  sx={{
+                    minHeight: 48,
+                    justifyContent: drawerOpen ? 'initial' : 'center',
+                    px: 2.5,
+                  }}
+                >
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 0,
+                      mr: drawerOpen ? 3 : 'auto',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <MenuBook />
+                  </ListItemIcon>
+                  {drawerOpen && <ListItemText primary="Wiki" />}
+                </ListItemButton>
+              </Tooltip>
+            </ListItem>
+          </>
+        )}
       </List>
     </Box>
   )

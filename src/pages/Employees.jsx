@@ -49,14 +49,29 @@ const Employees = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [departmentFilter, setDepartmentFilter] = useState('ALL')
+  const [departments, setDepartments] = useState([])
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [employeeToDelete, setEmployeeToDelete] = useState(null)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
   const { user } = useAuth()
 
   useEffect(() => {
+    fetchDepartments()
+  }, [])
+
+  useEffect(() => {
     fetchEmployees()
   }, [page, rowsPerPage, searchTerm, statusFilter, departmentFilter])
+
+  const fetchDepartments = async () => {
+    try {
+      const response = await api.get('/department')
+      setDepartments(response.data.data || [])
+    } catch (error) {
+      console.error('Error fetching departments:', error)
+      setDepartments([])
+    }
+  }
 
   const fetchEmployees = async () => {
     try {
@@ -66,7 +81,7 @@ const Employees = () => {
         size: rowsPerPage,
         search: searchTerm || undefined,
         status: statusFilter !== 'ALL' ? statusFilter : undefined,
-        department: departmentFilter !== 'ALL' ? departmentFilter : undefined,
+        department: departmentFilter !== 'ALL' ? Number(departmentFilter) : undefined,
         includeDeleted: user?.role === 'ADMIN' ? true : undefined // Admins see deleted employees
       }
       const response = await api.get('/employee', { params })
@@ -276,11 +291,12 @@ const Employees = () => {
                 label={t('employees.department')}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
               >
-                <MenuItem value="ALL">{t('employees.allDepartments')}</MenuItem>
-                <MenuItem value="IT">IT</MenuItem>
-                <MenuItem value="HR">HR</MenuItem>
-                <MenuItem value="SALES">Sales</MenuItem>
-                <MenuItem value="MARKETING">Marketing</MenuItem>
+                <MenuItem value="ALL">{t('employees.allDepartments') || 'All Departments'}</MenuItem>
+                {departments.map((dept) => (
+                  <MenuItem key={dept.id} value={String(dept.id)}>
+                    {dept.name}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
           </Grid>
