@@ -33,7 +33,7 @@ const Dashboard = () => {
     return <Navigate to="/admin-dashboard" replace />
   } else if (user?.role === 'HR') {
     return <Navigate to="/hr-dashboard" replace />
-  } else if (user?.role === 'EMPLOYEE') {
+  } else if (user?.role === 'EMPLOYEE' || user?.role === 'DEPARTMENT_MANAGER') {
     return <Navigate to="/employee-dashboard" replace />
   }
 
@@ -55,7 +55,7 @@ const Dashboard = () => {
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
-        {t('dashboard.welcome')}
+        {t('pageTitles.dashboard')}
       </Typography>
 
       <Grid container spacing={3} sx={{ mb: 3 }}>

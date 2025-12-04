@@ -120,11 +120,15 @@ const CompanyTickets = () => {
         })
         setTickets(response.data.data?.content || response.data.data || [])
       } else if (activeTab === 1) {
-        // My tickets
-        response = await api.get('/company-tickets/my-tickets')
+        // For HR: Assigned to me, For others: My tickets
+        if (isHR) {
+          response = await api.get('/company-tickets/assigned-to-me')
+        } else {
+          response = await api.get('/company-tickets/my-tickets')
+        }
         setTickets(response.data.data || [])
-      } else if (activeTab === 2 && (isAdmin || isHR || isDepartmentManager)) {
-        // Assigned to me
+      } else if (activeTab === 2 && (isAdmin || isDepartmentManager)) {
+        // Assigned to me (for admin and department managers only, HR uses tab 1)
         response = await api.get('/company-tickets/assigned-to-me')
         setTickets(response.data.data || [])
       } else {
@@ -348,7 +352,6 @@ const CompanyTickets = () => {
           '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(33, 150, 243, 0.4)' }
         }
       case 'IN_PROGRESS':
-      case 'WAITING_FOR_CUSTOMER':
         return {
           ...baseStyles,
           background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
@@ -372,6 +375,14 @@ const CompanyTickets = () => {
           fontWeight: 500,
           boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
           '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 8px rgba(0, 0, 0, 0.15)' }
+        }
+      case 'WAITING_FOR_CUSTOMER':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(255, 152, 0, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(255, 152, 0, 0.4)' }
         }
       default:
         return {
@@ -489,8 +500,18 @@ const CompanyTickets = () => {
 
   const canAddComment = () => {
     if (!selectedTicket || !user) return false
-    if (isAdmin) return true
-    if ((isHR || isEmployee) && selectedTicket.user?.id === user.id) return true
+    // Admin and HR can comment on any ticket
+    if (isAdmin || isHR) return true
+    // Ticket creator can comment
+    if (selectedTicket.user?.id === user.id) return true
+    // Assigned user can comment
+    if (selectedTicket.assignedTo?.id === user.id) return true
+    // Department manager can comment on tickets from their department
+    if (isDepartmentManager && selectedTicket.user?.role === 'EMPLOYEE') {
+      // Note: Full department check would require additional ticket data
+      // For now, allow department managers to comment
+      return true
+    }
     return false
   }
 
@@ -538,12 +559,39 @@ const CompanyTickets = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Box>
-          <Typography variant="h4" gutterBottom sx={{ fontWeight: 600 }}>
+            <Box display="flex" alignItems="center" gap={2} mb={1}>
+              <Box
+                sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)'
+                }}
+              >
+                <AssignmentIcon sx={{ fontSize: 28, color: 'white' }} />
+              </Box>
+              <Box>
+                <Typography 
+                  variant="h4"
+                  sx={{
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                  }}
+                >
             {t('pageTitles.companyTickets')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {t('tickets.manageInternalTickets')}
           </Typography>
+              </Box>
+            </Box>
         </Box>
         <Stack direction="row" spacing={2}>
           <Button
@@ -559,6 +607,16 @@ const CompanyTickets = () => {
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => setOpenCreate(true)}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
             >
               {t('tickets.createTicket')}
             </Button>
@@ -580,43 +638,50 @@ const CompanyTickets = () => {
       )}
 
       {/* Tabs */}
-      <Paper sx={{ mb: 3 }}>
         <Tabs
           value={activeTab}
           onChange={(e, newValue) => setActiveTab(newValue)}
-          indicatorColor="primary"
-          textColor="primary"
+          sx={{ 
+            mb: 3,
+            '& .MuiTab-root': {
+              borderRadius: 2,
+              mx: 0.5,
+              '&.Mui-selected': {
+                background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
+                color: '#667eea',
+                fontWeight: 600
+              }
+            },
+            '& .MuiTabs-indicator': {
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+              height: 3,
+              borderRadius: '3px 3px 0 0'
+            }
+          }}
         >
           <Tab label={t('tickets.allTickets')} />
-          <Tab label={t('tickets.myTickets')} />
-          {(isAdmin || isHR || isDepartmentManager) && <Tab label={t('tickets.assignedToMe')} />}
+          {!isHR && <Tab label={t('tickets.myTickets')} />}
+          {isHR ? (
+            <Tab label={t('tickets.assignedToMe')} />
+          ) : (
+            <>
+              {(isAdmin || isDepartmentManager) && <Tab label={t('tickets.assignedToMe')} />}
+            </>
+          )}
         </Tabs>
-      </Paper>
 
       {/* Filters */}
-      <Paper 
-        sx={{ 
-          p: 2, 
-          mb: 3,
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(20px)',
-          borderRadius: 3,
-          border: '1px solid rgba(255, 255, 255, 0.3)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-          position: 'relative',
-          overflow: 'hidden',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '4px',
-            background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
-            opacity: 0.8
-          }
-        }}
-      >
+        <Paper 
+          sx={{ 
+            p: 2, 
+            mb: 3,
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+          }}
+        >
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={3}>
             <TextField
@@ -808,20 +873,7 @@ const CompanyTickets = () => {
           <CircularProgress />
         </Box>
       ) : filteredTickets.length === 0 ? (
-        <Card
-          sx={{
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(20px)',
-            borderRadius: 3,
-            border: '1px solid rgba(255, 255, 255, 0.3)',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
-              transform: 'translateY(-2px)'
-            }
-          }}
-        >
+        <Card>
           <CardContent sx={{ textAlign: 'center', py: 4 }}>
             <Typography variant="h6" color="text.secondary">
               {t('tickets.noTicketsFound')}
@@ -853,7 +905,7 @@ const CompanyTickets = () => {
                   transition: 'all 0.3s ease',
                   borderLeft: ticket.hasUnreadUpdates ? '4px solid' : 'none',
                   borderColor: ticket.hasUnreadUpdates ? 'error.main' : 'transparent',
-                  '&:hover': {
+                  '&:hover': { 
                     boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
                     transform: 'translateY(-2px)'
                   }
@@ -927,8 +979,39 @@ const CompanyTickets = () => {
       )}
 
       {/* Create Ticket Dialog */}
-      <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="md" fullWidth>
-        <DialogTitle>{t('tickets.createNewTicket')}</DialogTitle>
+      <Dialog 
+        open={openCreate} 
+        onClose={() => setOpenCreate(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+              transform: 'translateY(-2px)'
+            }
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            pb: 2
+          }}
+        >
+          {t('tickets.createNewTicket')}
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
             <TextField
@@ -1028,14 +1111,17 @@ const CompanyTickets = () => {
             </Box>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => {
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button 
+            onClick={() => {
             setOpenCreate(false)
             setNewTicket({ title: '', description: '', priority: 'MEDIUM', category: 'GENERAL' })
             setAttachment(null)
             setPreview(null)
             setError('')
-          }}>
+            }}
+            sx={{ borderRadius: 2 }}
+          >
             {t('common.cancel')}
           </Button>
           <Button 
@@ -1072,18 +1158,45 @@ const CompanyTickets = () => {
         }} 
         maxWidth="md" 
         fullWidth
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+              transform: 'translateY(-2px)'
+            }
+          }
+        }}
       >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">{t('tickets.ticketDetails')}</Typography>
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            pb: 2
+          }}
+        >
+          <Box component="span">
+            {t('tickets.ticketDetails')}
+          </Box>
             {selectedTicket && (
               <Chip
                 label={getStatusLabel(selectedTicket.status)}
-                color={getStatusColor(selectedTicket.status)}
                 size="small"
+              sx={getStatusChipStyles(selectedTicket.status)}
               />
             )}
-          </Box>
         </DialogTitle>
         <DialogContent>
           {selectedTicket && (
@@ -1095,8 +1208,8 @@ const CompanyTickets = () => {
                 <Chip label={getCategoryLabel(selectedTicket.category)} size="small" variant="outlined" />
                 <Chip
                   label={getPriorityLabel(selectedTicket.priority)}
-                  color={getPriorityColor(selectedTicket.priority)}
                   size="small"
+                  sx={getPriorityChipStyles(selectedTicket.priority)}
                 />
               </Stack>
               <Typography variant="body1" sx={{ mb: 3, whiteSpace: 'pre-wrap' }}>
@@ -1221,10 +1334,6 @@ const CompanyTickets = () => {
                         background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
                         boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
                         transform: 'translateY(-2px)'
-                      },
-                      '&:disabled': {
-                        background: 'rgba(0, 0, 0, 0.12)',
-                        color: 'rgba(0, 0, 0, 0.26)'
                       }
                     }}
                   >
@@ -1235,20 +1344,31 @@ const CompanyTickets = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
           {(isAdmin || isHR) && selectedTicket && selectedTicket.status !== 'RESOLVED' && (
-            <>
               <Button
                 onClick={() => handleResolveTicket(selectedTicket.id)}
                 variant="contained"
                 color="success"
                 startIcon={<CheckCircleIcon />}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)',
+                boxShadow: '0 4px 16px rgba(76, 175, 80, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #388e3c 0%, #4caf50 100%)',
+                  boxShadow: '0 6px 20px rgba(76, 175, 80, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
               >
                 {t('tickets.resolveTicket')}
               </Button>
-            </>
           )}
-          <Button onClick={() => setOpenView(false)}>
+          <Button 
+            onClick={() => setOpenView(false)}
+            sx={{ borderRadius: 2 }}
+          >
             {t('common.close')}
           </Button>
         </DialogActions>

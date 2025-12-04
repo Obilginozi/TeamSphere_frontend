@@ -32,7 +32,7 @@ const BackupExport = () => {
 
   const handleExport = async () => {
     if (!company || !company.id) {
-      setError('Company information not available')
+      setError(t('backupExport.companyInfoNotAvailable'))
       return
     }
 
@@ -106,9 +106,9 @@ const BackupExport = () => {
   ]
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box>
       <Typography variant="h4" gutterBottom>
-        Backup & Export
+        {t('pageTitles.backupExport')}
       </Typography>
       <Typography variant="body1" color="textSecondary" paragraph>
         Export complete company data including employees, time logs, departments, and more.
@@ -216,7 +216,21 @@ const BackupExport = () => {
           startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
           onClick={handleExport}
           disabled={loading || !company}
-          sx={{ minWidth: 200 }}
+          sx={{
+            minWidth: 200,
+            borderRadius: 2,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+              boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+              transform: 'translateY(-2px)'
+            },
+            '&:disabled': {
+              background: 'rgba(0, 0, 0, 0.12)',
+              color: 'rgba(0, 0, 0, 0.26)'
+            }
+          }}
         >
           {loading ? 'Exporting...' : 'Export Data'}
         </Button>

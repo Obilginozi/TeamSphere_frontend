@@ -17,7 +17,10 @@ import {
   CircularProgress,
   Paper,
   Divider,
-  LinearProgress
+  LinearProgress,
+  Fade,
+  Zoom,
+  Grow
 } from '@mui/material'
 import {
   People as PeopleIcon,
@@ -30,7 +33,8 @@ import {
   Cancel as CancelIcon,
   Pending as PendingIcon,
   Refresh as RefreshIcon,
-  ArrowForward as ArrowForwardIcon
+  ArrowForward as ArrowForwardIcon,
+  Dashboard as DashboardIcon
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
@@ -73,8 +77,8 @@ const HRDashboard = () => {
 
       // Determine the correct tickets endpoint based on user role
       const ticketsEndpoint = user?.role === 'ADMIN' 
-        ? '/general-tickets/hr-tickets' 
-        : '/general-tickets/my-tickets'
+        ? '/company-tickets/hr-tickets' 
+        : '/company-tickets/my-tickets'
 
       // Fetch all data in parallel
       const [employeesRes, leaveRequestsRes, ticketsRes, timeLogsRes, departmentsRes] = await Promise.all([
@@ -272,24 +276,83 @@ const HRDashboard = () => {
     }
   }
 
-  const StatCard = ({ title, value, icon, color, onClick }) => (
-    <Card sx={{ height: '100%', cursor: onClick ? 'pointer' : 'default' }} onClick={onClick}>
-      <CardContent>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Box>
-            <Typography color="textSecondary" gutterBottom variant="body2">
-              {title}
-            </Typography>
-            <Typography variant="h4" component="div">
-              {loading ? <CircularProgress size={24} /> : value}
-            </Typography>
+  const StatCard = ({ title, value, icon, color, onClick, index = 0 }) => (
+    <Grow in timeout={600 + (index * 100)}>
+      <Card 
+        sx={{ 
+          height: '100%', 
+          cursor: onClick ? 'pointer' : 'default',
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: 3,
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          transition: 'all 0.3s ease',
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: color,
+            opacity: 0.8
+          },
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+            '&::before': {
+              opacity: 1
+            }
+          }
+        }} 
+        onClick={onClick}
+      >
+        <CardContent sx={{ p: 3 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Box flex={1}>
+              <Typography 
+                color="textSecondary" 
+                gutterBottom 
+                variant="body2"
+                sx={{ fontWeight: 500, mb: 1 }}
+              >
+                {title}
+              </Typography>
+              <Typography 
+                variant="h3" 
+                component="div"
+                sx={{ 
+                  fontWeight: 700,
+                  background: `linear-gradient(135deg, ${color} 0%, ${color}80 100%)`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}
+              >
+                {loading ? <CircularProgress size={28} /> : value}
+              </Typography>
+            </Box>
+            <Avatar 
+              sx={{ 
+                bgcolor: color, 
+                width: 64, 
+                height: 64,
+                boxShadow: `0 4px 20px ${color}40`,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'scale(1.1) rotate(5deg)'
+                }
+              }}
+            >
+              {icon}
+            </Avatar>
           </Box>
-          <Avatar sx={{ bgcolor: color, width: 56, height: 56 }}>
-            {icon}
-          </Avatar>
-        </Box>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Grow>
   )
 
   const getLeaveStatusColor = (status) => {
@@ -319,26 +382,95 @@ const HRDashboard = () => {
   }
 
   return (
-    <Box>
-      {/* Header */}
-      <Box mb={4} display="flex" justifyContent="space-between" alignItems="center">
-        <Box>
-          <Typography variant="h4" gutterBottom>
-            {t('hrDashboard.title')}
-          </Typography>
-          <Typography variant="body2" color="textSecondary">
-            {t('hrDashboard.welcomeBack')}, {user?.firstName || t('hrDashboard.hrManager')}
-          </Typography>
-        </Box>
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          onClick={fetchDashboardData}
-          disabled={loading}
-        >
-          {t('hrDashboard.refresh')}
-        </Button>
-      </Box>
+    <Box
+      sx={{
+        minHeight: 'calc(100vh - 64px)', // Subtract AppBar height
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        position: 'relative',
+        margin: -3, // Override Layout padding
+        padding: 3, // Restore padding for content
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }
+      }}
+    >
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
+        {/* Header */}
+        <Fade in timeout={600}>
+          <Box 
+            mb={4} 
+            display="flex" 
+            justifyContent="space-between" 
+            alignItems="center"
+            flexWrap="wrap"
+            gap={2}
+          >
+            <Box>
+              <Box display="flex" alignItems="center" gap={2} mb={1}>
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)'
+                  }}
+                >
+                  <DashboardIcon sx={{ fontSize: 28, color: 'white' }} />
+                </Box>
+                <Box>
+                  <Typography 
+                    variant="h4" 
+                    gutterBottom
+                    sx={{
+                      fontWeight: 700,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text'
+                    }}
+                  >
+                    {t('pageTitles.hrDashboard')}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('hrDashboard.welcomeBack')}, {user?.firstName || t('hrDashboard.hrManager')}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+            <Button
+              variant="contained"
+              startIcon={<RefreshIcon />}
+              onClick={fetchDashboardData}
+              disabled={loading}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                textTransform: 'none',
+                fontWeight: 600,
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+            >
+              {t('hrDashboard.refresh')}
+            </Button>
+          </Box>
+        </Fade>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
@@ -346,79 +478,108 @@ const HRDashboard = () => {
         </Alert>
       )}
 
-      {/* Stats Cards */}
-      <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <StatCard
-            title={t('hrDashboard.totalEmployees')}
-            value={dashboardData.stats.totalEmployees || 0}
-            icon={<PeopleIcon />}
-            color="#1976d2"
-            onClick={() => navigate('/employees')}
-          />
+        {/* Stats Cards */}
+        <Grid container spacing={3} mb={4}>
+          <Grid item xs={12} sm={6} md={4} lg={2}>
+            <StatCard
+              title={t('hrDashboard.totalEmployees')}
+              value={dashboardData.stats.totalEmployees || 0}
+              icon={<PeopleIcon />}
+              color="#1976d2"
+              onClick={() => navigate('/employees')}
+              index={0}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={4} lg={2}>
+            <StatCard
+              title={t('hrDashboard.activeToday')}
+              value={dashboardData.stats.activeEmployees || 0}
+              icon={<CheckCircleIcon />}
+              color="#4caf50"
+              index={1}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={4} lg={2}>
+            <StatCard
+              title={t('hrDashboard.pendingLeaves')}
+              value={dashboardData.stats.pendingLeaves || 0}
+              icon={<EventIcon />}
+              color="#ff9800"
+              onClick={() => navigate('/leave-requests')}
+              index={2}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={4} lg={2}>
+            <StatCard
+              title={t('hrDashboard.openTickets')}
+              value={dashboardData.stats.pendingTickets || 0}
+              icon={<AssignmentIcon />}
+              color="#9c27b0"
+              onClick={() => navigate('/support-tickets')}
+              index={3}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={4} lg={2}>
+            <StatCard
+              title={t('hrDashboard.todayAbsences')}
+              value={dashboardData.stats.todayAbsences || 0}
+              icon={<WarningIcon />}
+              color="#f44336"
+              index={4}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={4} lg={2}>
+            <StatCard
+              title={t('hrDashboard.newHiresMonth')}
+              value={dashboardData.stats.thisMonthHires || 0}
+              icon={<TrendingUpIcon />}
+              color="#00bcd4"
+              index={5}
+            />
+          </Grid>
         </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <StatCard
-            title={t('hrDashboard.activeToday')}
-            value={dashboardData.stats.activeEmployees || 0}
-            icon={<CheckCircleIcon />}
-            color="#4caf50"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <StatCard
-            title={t('hrDashboard.pendingLeaves')}
-            value={dashboardData.stats.pendingLeaves || 0}
-            icon={<EventIcon />}
-            color="#ff9800"
-            onClick={() => navigate('/leave-requests')}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <StatCard
-            title={t('hrDashboard.openTickets')}
-            value={dashboardData.stats.pendingTickets || 0}
-            icon={<AssignmentIcon />}
-            color="#9c27b0"
-            onClick={() => navigate('/tickets')}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <StatCard
-            title={t('hrDashboard.todayAbsences')}
-            value={dashboardData.stats.todayAbsences || 0}
-            icon={<WarningIcon />}
-            color="#f44336"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <StatCard
-            title={t('hrDashboard.newHiresMonth')}
-            value={dashboardData.stats.thisMonthHires || 0}
-            icon={<TrendingUpIcon />}
-            color="#00bcd4"
-          />
-        </Grid>
-      </Grid>
 
-      <Grid container spacing={3}>
-        {/* Pending Leave Requests */}
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="h6">
-                  {t('hrDashboard.pendingLeaveRequests')}
-                </Typography>
-                <Button
-                  size="small"
-                  endIcon={<ArrowForwardIcon />}
-                  onClick={() => navigate('/leave-requests')}
-                >
-                  {t('hrDashboard.viewAll')}
-                </Button>
-              </Box>
-              <Divider sx={{ mb: 2 }} />
+        <Grid container spacing={3}>
+          {/* Pending Leave Requests */}
+          <Grid item xs={12} md={6}>
+            <Zoom in timeout={800}>
+              <Card
+                sx={{
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  backdropFilter: 'blur(20px)',
+                  borderRadius: 3,
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                  height: '100%',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
+                <CardContent sx={{ p: 3 }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Typography 
+                      variant="h6"
+                      sx={{ fontWeight: 600 }}
+                    >
+                      {t('hrDashboard.pendingLeaveRequests')}
+                    </Typography>
+                    <Button
+                      size="small"
+                      endIcon={<ArrowForwardIcon />}
+                      onClick={() => navigate('/leave-requests')}
+                      sx={{
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        fontWeight: 600
+                      }}
+                    >
+                      {t('hrDashboard.viewAll')}
+                    </Button>
+                  </Box>
+                  <Divider sx={{ mb: 2 }} />
               {dashboardData.recentLeaves.length === 0 ? (
                 <Typography color="textSecondary" align="center" py={3}>
                   {t('hrDashboard.noPendingLeaves')}
@@ -445,38 +606,67 @@ const HRDashboard = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
+            </Zoom>
+          </Grid>
 
-        {/* Recent Tickets */}
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Typography variant="h6">
-                    {t('hrDashboard.recentTickets')}
-                  </Typography>
-                  {dashboardData.recentTickets.some(ticket => ticket.hasUnreadUpdates) && (
-                    <Box
+          {/* Recent Tickets */}
+          <Grid item xs={12} md={6}>
+            <Zoom in timeout={900}>
+              <Card
+                sx={{
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  backdropFilter: 'blur(20px)',
+                  borderRadius: 3,
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                  height: '100%',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
+                <CardContent sx={{ p: 3 }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Typography 
+                        variant="h6"
+                        sx={{ fontWeight: 600 }}
+                      >
+                        {t('hrDashboard.recentTickets')}
+                      </Typography>
+                      {dashboardData.recentTickets.some(ticket => ticket.hasUnreadUpdates) && (
+                        <Box
+                          sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            bgcolor: 'error.main',
+                            ml: 0.5,
+                            animation: 'pulse 2s ease-in-out infinite',
+                            '@keyframes pulse': {
+                              '0%, 100%': { opacity: 1 },
+                              '50%': { opacity: 0.5 }
+                            }
+                          }}
+                        />
+                      )}
+                    </Box>
+                    <Button
+                      size="small"
+                      endIcon={<ArrowForwardIcon />}
+                      onClick={() => navigate('/support-tickets')}
                       sx={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        bgcolor: 'error.main',
-                        ml: 0.5
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        fontWeight: 600
                       }}
-                    />
-                  )}
-                </Box>
-                <Button
-                  size="small"
-                  endIcon={<ArrowForwardIcon />}
-                  onClick={() => navigate('/tickets')}
-                >
-                  {t('hrDashboard.viewAll')}
-                </Button>
-              </Box>
-              <Divider sx={{ mb: 2 }} />
+                    >
+                      {t('hrDashboard.viewAll')}
+                    </Button>
+                  </Box>
+                  <Divider sx={{ mb: 2 }} />
               {dashboardData.recentTickets.length === 0 ? (
                 <Typography color="textSecondary" align="center" py={3}>
                   {t('hrDashboard.noOpenTickets')}
@@ -513,16 +703,36 @@ const HRDashboard = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
+            </Zoom>
+          </Grid>
 
-        {/* Upcoming Birthdays */}
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t('hrDashboard.upcomingBirthdays')}
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
+          {/* Upcoming Birthdays */}
+          <Grid item xs={12} md={6}>
+            <Zoom in timeout={1000}>
+              <Card
+                sx={{
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  backdropFilter: 'blur(20px)',
+                  borderRadius: 3,
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                  height: '100%',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
+                <CardContent sx={{ p: 3 }}>
+                  <Typography 
+                    variant="h6" 
+                    gutterBottom
+                    sx={{ fontWeight: 600 }}
+                  >
+                    {t('hrDashboard.upcomingBirthdays')}
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
               {dashboardData.upcomingBirthdays.length === 0 ? (
                 <Typography color="textSecondary" align="center" py={3}>
                   {t('hrDashboard.noUpcomingBirthdays')}
@@ -544,16 +754,36 @@ const HRDashboard = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
+            </Zoom>
+          </Grid>
 
-        {/* Attendance Alerts */}
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t('hrDashboard.attendanceAlerts')}
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
+          {/* Attendance Alerts */}
+          <Grid item xs={12} md={6}>
+            <Zoom in timeout={1100}>
+              <Card
+                sx={{
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  backdropFilter: 'blur(20px)',
+                  borderRadius: 3,
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                  height: '100%',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
+                <CardContent sx={{ p: 3 }}>
+                  <Typography 
+                    variant="h6" 
+                    gutterBottom
+                    sx={{ fontWeight: 600 }}
+                  >
+                    {t('hrDashboard.attendanceAlerts')}
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
               {dashboardData.attendanceAlerts.length === 0 ? (
                 <Typography color="textSecondary" align="center" py={3}>
                   {t('hrDashboard.noAttendanceAlerts')}
@@ -577,56 +807,107 @@ const HRDashboard = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
+            </Zoom>
+          </Grid>
 
-        {/* Department Statistics */}
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {t('hrDashboard.departmentOverview')}
-              </Typography>
-              <Divider sx={{ mb: 3 }} />
-              <Grid container spacing={2}>
-                {dashboardData.departmentStats.length === 0 ? (
-                  <Grid item xs={12}>
-                    <Typography color="textSecondary" align="center" py={3}>
-                      {t('hrDashboard.noDepartmentData')}
-                    </Typography>
+          {/* Department Statistics */}
+          <Grid item xs={12}>
+            <Zoom in timeout={1200}>
+              <Card
+                sx={{
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  backdropFilter: 'blur(20px)',
+                  borderRadius: 3,
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
+                <CardContent sx={{ p: 3 }}>
+                  <Typography 
+                    variant="h6" 
+                    gutterBottom
+                    sx={{ fontWeight: 600 }}
+                  >
+                    {t('hrDashboard.departmentOverview')}
+                  </Typography>
+                  <Divider sx={{ mb: 3 }} />
+                  <Grid container spacing={2}>
+                    {dashboardData.departmentStats.length === 0 ? (
+                      <Grid item xs={12}>
+                        <Typography color="textSecondary" align="center" py={3}>
+                          {t('hrDashboard.noDepartmentData')}
+                        </Typography>
+                      </Grid>
+                    ) : (
+                      dashboardData.departmentStats.map((dept, index) => (
+                        <Grid item xs={12} sm={6} md={4} key={dept.name}>
+                          <Grow in timeout={800 + (index * 100)}>
+                            <Paper 
+                              elevation={0}
+                              sx={{ 
+                                p: 2.5,
+                                borderRadius: 2,
+                                background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)',
+                                border: '1px solid rgba(102, 126, 234, 0.1)',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                  transform: 'translateY(-4px)',
+                                  boxShadow: '0 8px 24px rgba(102, 126, 234, 0.15)',
+                                  borderColor: 'rgba(102, 126, 234, 0.3)'
+                                }
+                              }}
+                            >
+                              <Typography 
+                                variant="subtitle1" 
+                                gutterBottom
+                                sx={{ fontWeight: 600 }}
+                              >
+                                {dept.name}
+                              </Typography>
+                              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+                                <Typography variant="body2" color="textSecondary">
+                                  {t('hrDashboard.employees')}
+                                </Typography>
+                                <Typography 
+                                  variant="h6"
+                                  sx={{ fontWeight: 700 }}
+                                >
+                                  {dept.employeeCount || 0}
+                                </Typography>
+                              </Box>
+                              <LinearProgress
+                                variant="determinate"
+                                value={dept.attendanceRate || 0}
+                                sx={{ 
+                                  height: 10, 
+                                  borderRadius: 2,
+                                  background: 'rgba(0, 0, 0, 0.05)',
+                                  '& .MuiLinearProgress-bar': {
+                                    borderRadius: 2,
+                                    background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)'
+                                  }
+                                }}
+                              />
+                              <Typography variant="caption" color="textSecondary" mt={1} display="block">
+                                {dept.attendanceRate || 0}% {t('hrDashboard.attendanceRate')}
+                              </Typography>
+                            </Paper>
+                          </Grow>
+                        </Grid>
+                      ))
+                    )}
                   </Grid>
-                ) : (
-                  dashboardData.departmentStats.map((dept) => (
-                    <Grid item xs={12} sm={6} md={4} key={dept.name}>
-                      <Paper elevation={1} sx={{ p: 2 }}>
-                        <Typography variant="subtitle1" gutterBottom>
-                          {dept.name}
-                        </Typography>
-                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                          <Typography variant="body2" color="textSecondary">
-                            {t('hrDashboard.employees')}
-                          </Typography>
-                          <Typography variant="h6">
-                            {dept.employeeCount || 0}
-                          </Typography>
-                        </Box>
-                        <LinearProgress
-                          variant="determinate"
-                          value={dept.attendanceRate || 0}
-                          sx={{ height: 8, borderRadius: 1 }}
-                        />
-                        <Typography variant="caption" color="textSecondary" mt={0.5}>
-                          {dept.attendanceRate || 0}% {t('hrDashboard.attendanceRate')}
-                        </Typography>
-                      </Paper>
-                    </Grid>
-                  ))
-                )}
-              </Grid>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </Zoom>
+          </Grid>
         </Grid>
-      </Grid>
-
+      </Box>
     </Box>
   )
 }

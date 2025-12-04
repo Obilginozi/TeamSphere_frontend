@@ -49,6 +49,31 @@ body {
   100% { transform: rotate(360deg); }
 }
 
+/* Gradient shift animations for modern theme */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes gradientShiftVertical {
+  0% {
+    background-position: 50% 0%;
+  }
+  50% {
+    background-position: 50% 100%;
+  }
+  100% {
+    background-position: 50% 0%;
+  }
+}
+
 /* Utility classes */
 .text-center { text-align: center; }
 .text-left { text-align: left; }

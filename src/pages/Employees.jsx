@@ -26,10 +26,12 @@ import {
   TablePagination,
   InputAdornment,
   Alert,
-  Snackbar
+  Snackbar,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material'
-import { Add, Edit, Delete, Download, Search, FilterList, Print } from '@mui/icons-material'
-import { useLanguage } from '../contexts/LanguageContext'
+import { Add, Edit, Delete, Download, Search, FilterList, Print, People } from '@mui/icons-material'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import ValidatedTextField from '../components/ValidatedTextField'
@@ -38,7 +40,7 @@ import { fieldValidations, validationRules } from '../utils/validation'
 import { getErrorMessage, logSuccessDetails } from '../utils/errorHandler'
 
 const Employees = () => {
-  const { t } = useLanguage()
+  const { t } = useTranslation()
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
@@ -94,13 +96,13 @@ const Employees = () => {
         console.error('Unexpected response structure:', response.data)
         setEmployees([])
         setTotalElements(0)
-        showSnackbar('Unexpected response format', 'error')
+        showSnackbar(t('employees.unexpectedResponseFormat'), 'error')
       }
     } catch (error) {
       console.error('Error fetching employees:', error)
       setEmployees([])
       setTotalElements(0)
-      showSnackbar(getErrorMessage(error, 'Failed to load employees'), 'error')
+      showSnackbar(getErrorMessage(error, t('employees.failedToLoad'), '', t), 'error')
     } finally {
       setLoading(false)
     }
@@ -128,10 +130,10 @@ const Employees = () => {
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
-      showSnackbar('Employees exported successfully', 'success')
+      showSnackbar(t('employees.exportedSuccessfully'), 'success')
     } catch (error) {
       console.error('Error exporting employees:', error)
-      showSnackbar(getErrorMessage(error, 'Failed to export employees'), 'error')
+      showSnackbar(getErrorMessage(error, t('employees.failedToExport'), '', t), 'error')
     }
   }
 
@@ -146,17 +148,17 @@ const Employees = () => {
       if (editingEmployee) {
         response = await api.put(`/employee/${editingEmployee.id}`, employeeData)
         logSuccessDetails(response, 'Employee updated', employeeData)
-        showSnackbar('Employee updated successfully', 'success')
+        showSnackbar(t('employees.updatedSuccessfully'), 'success')
       } else {
         response = await api.post('/employee', employeeData)
         logSuccessDetails(response, 'Employee created', employeeData)
-        showSnackbar('Employee created successfully', 'success')
+        showSnackbar(t('employees.createdSuccessfully'), 'success')
       }
       fetchEmployees()
       handleClose()
     } catch (error) {
       console.error('Error saving employee:', error)
-      showSnackbar(getErrorMessage(error, 'Failed to save employee'), 'error')
+      showSnackbar(getErrorMessage(error, t('employees.failedToSave'), '', t), 'error')
     }
   }
 
@@ -215,19 +217,79 @@ const Employees = () => {
     setPage(0)
   }
 
+  const getEmploymentStatusLabel = (status) => {
+    const labels = {
+      ACTIVE: t('employees.active'),
+      INACTIVE: t('employees.inactive'),
+      ON_LEAVE: t('employees.onLeave'),
+      SUSPENDED: t('employees.suspended'),
+      TERMINATED: t('employees.terminated')
+    }
+    return labels[status] || status
+  }
+
   return (
-    <Box sx={{ p: 3 }}>
+    <Box
+      sx={{
+        minHeight: 'calc(100vh - 64px)',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        position: 'relative',
+        margin: -3,
+        padding: 3,
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }
+      }}
+    >
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
       {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">
-          {t('employees.title')}
+          <Box>
+            <Box display="flex" alignItems="center" gap={2} mb={1}>
+              <Box
+                sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)'
+                }}
+              >
+                <People sx={{ fontSize: 28, color: 'white' }} />
+              </Box>
+              <Box>
+                <Typography 
+                  variant="h4"
+                  sx={{
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                  }}
+                >
+          {t('pageTitles.employees')}
         </Typography>
+              </Box>
+            </Box>
+          </Box>
         <Box>
           <Button
             variant="outlined"
             startIcon={<Download />}
             onClick={handleExportExcel}
-            sx={{ mr: 2 }}
+              sx={{ mr: 2, borderRadius: 2 }}
           >
             {t('common.export')}
           </Button>
@@ -235,7 +297,7 @@ const Employees = () => {
             variant="outlined"
             startIcon={<Print />}
             onClick={handlePrint}
-            sx={{ mr: 2 }}
+              sx={{ mr: 2, borderRadius: 2 }}
           >
             {t('common.print')}
           </Button>
@@ -243,6 +305,16 @@ const Employees = () => {
             variant="contained"
             startIcon={<Add />}
             onClick={() => setOpen(true)}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
           >
             {t('employees.addEmployee')}
           </Button>
@@ -250,30 +322,79 @@ const Employees = () => {
       </Box>
 
       {/* Filters and Search */}
-      <Paper sx={{ p: 2, mb: 2 }}>
+        <Paper 
+          sx={{ 
+            p: 2, 
+            mb: 2,
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+          }}
+        >
         <Grid container spacing={2}>
           <Grid item xs={12} md={4}>
             <TextField
               fullWidth
+              size="small"
+              label={t('common.search')}
               placeholder={t('employees.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.95)',
+                  },
+                  '&.Mui-focused': {
+                    background: 'rgba(255, 255, 255, 1)',
+                    boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                  }
+                }
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Search />
+                    <Search sx={{ color: '#667eea' }} />
                   </InputAdornment>
                 ),
               }}
             />
           </Grid>
           <Grid item xs={12} md={4}>
-            <FormControl fullWidth>
+            <FormControl 
+              fullWidth 
+              size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.95)',
+                  },
+                  '&.Mui-focused': {
+                    background: 'rgba(255, 255, 255, 1)',
+                    boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                  }
+                }
+              }}
+            >
               <InputLabel>{t('employees.status')}</InputLabel>
               <Select
                 value={statusFilter}
                 label={t('employees.status')}
                 onChange={(e) => setStatusFilter(e.target.value)}
+                renderValue={(value) => {
+                  if (value === 'ALL') return t('employees.allStatus')
+                  if (value === 'ACTIVE') return t('employees.active')
+                  if (value === 'INACTIVE') return t('employees.inactive')
+                  if (value === 'ON_LEAVE') return t('employees.onLeave')
+                  if (value === 'TERMINATED') return t('employees.terminated')
+                  return value
+                }}
               >
                 <MenuItem value="ALL">{t('employees.allStatus')}</MenuItem>
                 <MenuItem value="ACTIVE">{t('employees.active')}</MenuItem>
@@ -284,14 +405,35 @@ const Employees = () => {
             </FormControl>
           </Grid>
           <Grid item xs={12} md={4}>
-            <FormControl fullWidth>
+            <FormControl 
+              fullWidth 
+              size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.95)',
+                  },
+                  '&.Mui-focused': {
+                    background: 'rgba(255, 255, 255, 1)',
+                    boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                  }
+                }
+              }}
+            >
               <InputLabel>{t('employees.department')}</InputLabel>
               <Select
                 value={departmentFilter}
                 label={t('employees.department')}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
+                renderValue={(value) => {
+                  if (value === 'ALL') return t('employees.allDepartments')
+                  const dept = departments.find(d => String(d.id) === value)
+                  return dept ? dept.name : value
+                }}
               >
-                <MenuItem value="ALL">{t('employees.allDepartments') || 'All Departments'}</MenuItem>
+                <MenuItem value="ALL">{t('employees.allDepartments')}</MenuItem>
                 {departments.map((dept) => (
                   <MenuItem key={dept.id} value={String(dept.id)}>
                     {dept.name}
@@ -304,7 +446,16 @@ const Employees = () => {
       </Paper>
 
       {/* Table */}
-      <TableContainer component={Paper}>
+        <TableContainer 
+          component={Paper}
+          sx={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+          }}
+        >
         <Table>
           <TableHead>
             <TableRow>
@@ -321,11 +472,11 @@ const Employees = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} align="center">Loading...</TableCell>
+                <TableCell colSpan={8} align="center">{t('common.loadingData')}</TableCell>
               </TableRow>
             ) : employees.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center">No employees found</TableCell>
+                <TableCell colSpan={8} align="center">{t('employees.noEmployeesFound')}</TableCell>
               </TableRow>
             ) : (
               employees.map((employee) => (
@@ -342,7 +493,7 @@ const Employees = () => {
                     {employee.employeeId}
                     {employee.isDeleted && (
                       <Chip 
-                        label={t('employees.deleted')} 
+                        label={t('common.deleted')} 
                         size="small" 
                         color="error" 
                         sx={{ ml: 1 }}
@@ -356,9 +507,48 @@ const Employees = () => {
                   <TableCell>{employee.department?.name || '-'}</TableCell>
                   <TableCell>
                     <Chip
-                      label={employee.employmentStatus}
-                      color={employee.employmentStatus === 'ACTIVE' ? 'success' : 'default'}
+                      label={getEmploymentStatusLabel(employee.employmentStatus)}
                       size="small"
+                      sx={{
+                        ...(employee.employmentStatus === 'ACTIVE' ? {
+                          background: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)',
+                          color: 'white',
+                          fontWeight: 600,
+                          boxShadow: '0 2px 8px rgba(76, 175, 80, 0.3)',
+                        } : employee.employmentStatus === 'INACTIVE' ? {
+                          background: 'rgba(158, 158, 158, 0.2)',
+                          color: '#424242',
+                          fontWeight: 500,
+                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                        } : employee.employmentStatus === 'ON_LEAVE' ? {
+                          background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+                          color: 'white',
+                          fontWeight: 600,
+                          boxShadow: '0 2px 8px rgba(255, 152, 0, 0.3)',
+                        } : employee.employmentStatus === 'TERMINATED' ? {
+                          background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)',
+                          color: 'white',
+                          fontWeight: 600,
+                          boxShadow: '0 2px 8px rgba(244, 67, 54, 0.3)',
+                        } : {
+                          background: 'rgba(158, 158, 158, 0.2)',
+                          color: '#424242',
+                          fontWeight: 500,
+                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                        }),
+                        borderRadius: 2,
+                        '&:hover': {
+                          transform: 'translateY(-1px)',
+                          boxShadow: employee.employmentStatus === 'ACTIVE' 
+                            ? '0 4px 12px rgba(76, 175, 80, 0.4)' 
+                            : employee.employmentStatus === 'ON_LEAVE'
+                            ? '0 4px 12px rgba(255, 152, 0, 0.4)'
+                            : employee.employmentStatus === 'TERMINATED'
+                            ? '0 4px 12px rgba(244, 67, 54, 0.4)'
+                            : '0 4px 8px rgba(0, 0, 0, 0.15)'
+                        },
+                        transition: 'all 0.2s ease'
+                      }}
                     />
                   </TableCell>
                   <TableCell>
@@ -409,15 +599,67 @@ const Employees = () => {
       />
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Confirm Delete</DialogTitle>
+      <Dialog 
+        open={deleteDialogOpen} 
+        onClose={() => setDeleteDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #f44336 0%, #d32f2f 100%)',
+              opacity: 0.8
+            }
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            color: '#f44336',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            pb: 2
+          }}
+        >
+          {t('common.confirmDelete')}
+        </DialogTitle>
         <DialogContent>
-          Are you sure you want to delete {employeeToDelete?.user?.firstName} {employeeToDelete?.user?.lastName}?
+          {t('common.areYouSureDelete', { name: `${employeeToDelete?.user?.firstName} ${employeeToDelete?.user?.lastName}` })}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleDelete} color="error" variant="contained">
-            Delete
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button 
+            onClick={() => setDeleteDialogOpen(false)}
+            sx={{ borderRadius: 2 }}
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button 
+            onClick={handleDelete} 
+            color="error" 
+            variant="contained"
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)',
+              boxShadow: '0 4px 16px rgba(244, 67, 54, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #d32f2f 0%, #f44336 100%)',
+                boxShadow: '0 6px 20px rgba(244, 67, 54, 0.4)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
+            {t('common.delete')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -432,12 +674,13 @@ const Employees = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      </Box>
     </Box>
   )
 }
 
 const EmployeeDialog = ({ open, onClose, onSave, employee }) => {
-  const { t } = useLanguage()
+  const { t } = useTranslation()
   const [departments, setDepartments] = useState([])
   
   const methods = useForm({
@@ -456,7 +699,8 @@ const EmployeeDialog = ({ open, onClose, onSave, employee }) => {
       emergencyContact: '',
       salary: '',
       paymentType: 'GROSS_PAY',
-      employmentStatus: 'ACTIVE'
+      employmentStatus: 'ACTIVE',
+      worksInShifts: false
     }
   })
 
@@ -477,7 +721,8 @@ const EmployeeDialog = ({ open, onClose, onSave, employee }) => {
         emergencyContact: employee.emergencyContact || '',
         salary: employee.salary || '',
         paymentType: employee.paymentType || 'GROSS_PAY',
-        employmentStatus: employee.employmentStatus || 'ACTIVE'
+        employmentStatus: employee.employmentStatus || 'ACTIVE',
+        worksInShifts: employee.worksInShifts || false
       })
     } else {
       methods.reset()
@@ -501,8 +746,44 @@ const EmployeeDialog = ({ open, onClose, onSave, employee }) => {
   }))
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="md" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: 3,
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+            opacity: 0.8
+          }
+        }
+      }}
+    >
+      <DialogTitle
+        sx={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+          fontWeight: 700,
+          fontSize: '1.5rem',
+          pb: 2
+        }}
+      >
         {employee ? t('employees.editEmployee') : t('employees.addEmployee')}
       </DialogTitle>
       <FormProvider {...methods}>
@@ -657,11 +938,43 @@ const EmployeeDialog = ({ open, onClose, onSave, employee }) => {
                   }}
                 />
               </Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      {...methods.register('worksInShifts')}
+                      checked={methods.watch('worksInShifts') || false}
+                      onChange={(e) => methods.setValue('worksInShifts', e.target.checked)}
+                    />
+                  }
+                  label={t('employees.worksInShifts') || 'Works in Shifts'}
+                />
+              </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={onClose}>{t('common.cancel')}</Button>
-            <Button type="submit" variant="contained">{t('common.save')}</Button>
+          <DialogActions sx={{ p: 2.5, pt: 1 }}>
+            <Button 
+              onClick={onClose}
+              sx={{ borderRadius: 2 }}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button 
+              type="submit" 
+              variant="contained"
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+            >
+              {t('common.save')}
+            </Button>
           </DialogActions>
         </form>
       </FormProvider>

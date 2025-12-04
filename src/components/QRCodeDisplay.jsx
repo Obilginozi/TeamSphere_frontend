@@ -153,6 +153,16 @@ const QRCodeDisplay = ({ employeeId, qrData, size = 300, showDownload = true }) 
             variant="contained"
             startIcon={<Download />}
             onClick={handleDownload}
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                transform: 'translateY(-2px)'
+              }
+            }}
           >
             Download PNG
           </Button>

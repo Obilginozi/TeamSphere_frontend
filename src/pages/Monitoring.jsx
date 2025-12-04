@@ -71,7 +71,7 @@ const Monitoring = () => {
   return (
     <Box p={3}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">System Monitoring Dashboard</Typography>
+        <Typography variant="h4">{t('pageTitles.monitoring')}</Typography>
         <FormControl sx={{ minWidth: 150 }}>
           <InputLabel>Time Range</InputLabel>
           <Select value={timeRange} onChange={(e) => setTimeRange(e.target.value)} label="Time Range">

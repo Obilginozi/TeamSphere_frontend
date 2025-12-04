@@ -54,13 +54,13 @@ const ExcelImport = () => {
       link.click()
       link.remove()
     } catch (err) {
-      setError('Failed to download template')
+      setError(t('excelImport.failedToDownloadTemplate'))
     }
   }
 
   const handleUpload = async () => {
     if (!file) {
-      setError('Please select a file')
+      setError(t('excelImport.pleaseSelectFile'))
       return
     }
 
@@ -88,9 +88,9 @@ const ExcelImport = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box>
       <Typography variant="h4" gutterBottom>
-        Employee Data Import
+        {t('pageTitles.excelImport')}
       </Typography>
       <Typography variant="body1" color="textSecondary" paragraph>
         Upload an Excel file to import employee data into the system.
@@ -156,6 +156,20 @@ const ExcelImport = () => {
                 onClick={handleUpload}
                 disabled={!file || uploading}
                 fullWidth
+                sx={{
+                  borderRadius: 2,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                    transform: 'translateY(-2px)'
+                  },
+                  '&:disabled': {
+                    background: 'rgba(0, 0, 0, 0.12)',
+                    color: 'rgba(0, 0, 0, 0.26)'
+                  }
+                }}
               >
                 {uploading ? 'Uploading...' : 'Upload & Import'}
               </Button>

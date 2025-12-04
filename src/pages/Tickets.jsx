@@ -33,7 +33,8 @@ import {
   Visibility as VisibilityIcon,
   AttachFile as AttachFileIcon,
   Delete as DeleteIcon,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Support
 } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
@@ -76,18 +77,17 @@ const Tickets = () => {
       setError('')
       if (isAdmin) {
         // Admins see all HR tickets
-        const response = await api.get('/general-tickets/hr-tickets')
-        console.log('Fetched HR tickets:', response.data.data)
+        const response = await api.get('/company-tickets/hr-tickets')
         setTickets(response.data.data || [])
       } else if (isHR) {
         // HR sees their own tickets
-        const response = await api.get('/general-tickets/my-tickets')
-        console.log('Fetched my tickets:', response.data.data)
+        const response = await api.get('/company-tickets/my-tickets')
         setTickets(response.data.data || [])
       }
     } catch (error) {
       console.error('Failed to fetch tickets:', error)
-      setError(getErrorMessage(error, t('tickets.failedToLoad')))
+      const errorMessage = getErrorMessage(error, t('tickets.failedToLoad'))
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -118,7 +118,7 @@ const Tickets = () => {
         formData.append('attachment', attachment)
       }
 
-      const response = await api.post('/general-tickets', formData, {
+      const response = await api.post('/company-tickets', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
 
@@ -141,7 +141,8 @@ const Tickets = () => {
 
   const handleViewTicket = async (ticketId) => {
     try {
-      const response = await api.get(`/general-tickets/${ticketId}`)
+      setError('')
+      const response = await api.get(`/company-tickets/${ticketId}`)
       const ticket = response.data.data
       setSelectedTicket(ticket)
       setOpenView(true)
@@ -172,7 +173,7 @@ const Tickets = () => {
       // Mark ticket as read if HR user views it
       if (isHR && ticket.hasUnreadUpdates) {
         try {
-          await api.put(`/general-tickets/${ticketId}/mark-read`)
+          await api.put(`/company-tickets/${ticketId}/mark-read`)
           // Update local ticket state
           setTickets(prevTickets => 
             prevTickets.map(t => 
@@ -195,7 +196,7 @@ const Tickets = () => {
   const fetchComments = async (ticketId) => {
     try {
       setLoadingComments(true)
-      const response = await api.get(`/general-tickets/${ticketId}/comments`)
+      const response = await api.get(`/company-tickets/${ticketId}/comments`)
       setComments(response.data.data || [])
     } catch (error) {
       console.error('Failed to fetch comments:', error)
@@ -208,7 +209,7 @@ const Tickets = () => {
     if (!newComment.trim() || !selectedTicket) return
 
     try {
-      const response = await api.post(`/general-tickets/${selectedTicket.id}/comments`, {
+      const response = await api.post(`/company-tickets/${selectedTicket.id}/comments`, {
         comment: newComment
       })
       logSuccessDetails(response, 'Comment added', { ticketId: selectedTicket.id, comment: newComment })
@@ -257,7 +258,7 @@ const Tickets = () => {
 
   const handleResolveTicket = async (ticketId) => {
     try {
-      await api.post(`/general-tickets/${ticketId}/resolve`)
+      await api.post(`/company-tickets/${ticketId}/resolve`)
       setSuccess(t('tickets.ticketResolvedSuccessfully'))
       fetchTickets()
       if (selectedTicket?.id === ticketId) {
@@ -290,6 +291,117 @@ const Tickets = () => {
     }
   }
 
+  const getStatusChipStyles = (status) => {
+    const baseStyles = {
+      borderRadius: 2,
+      fontWeight: 600,
+      transition: 'all 0.2s ease',
+      '&:hover': {
+        transform: 'translateY(-1px)'
+      }
+    }
+    
+    switch (status) {
+      case 'OPEN':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(33, 150, 243, 0.4)' }
+        }
+      case 'IN_PROGRESS':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(255, 152, 0, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(255, 152, 0, 0.4)' }
+        }
+      case 'RESOLVED':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(76, 175, 80, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(76, 175, 80, 0.4)' }
+        }
+      case 'CLOSED':
+        return {
+          ...baseStyles,
+          background: 'rgba(158, 158, 158, 0.2)',
+          color: '#424242',
+          fontWeight: 500,
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 8px rgba(0, 0, 0, 0.15)' }
+        }
+      default:
+        return {
+          ...baseStyles,
+          background: 'rgba(158, 158, 158, 0.2)',
+          color: '#424242',
+          fontWeight: 500,
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 8px rgba(0, 0, 0, 0.15)' }
+        }
+    }
+  }
+
+  const getPriorityChipStyles = (priority) => {
+    const baseStyles = {
+      borderRadius: 2,
+      fontWeight: 600,
+      transition: 'all 0.2s ease',
+      '&:hover': {
+        transform: 'translateY(-1px)'
+      }
+    }
+    
+    switch (priority) {
+      case 'LOW':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(33, 150, 243, 0.4)' }
+        }
+      case 'MEDIUM':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(255, 152, 0, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(255, 152, 0, 0.4)' }
+        }
+      case 'HIGH':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(244, 67, 54, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(244, 67, 54, 0.4)' }
+        }
+      case 'CRITICAL':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(211, 47, 47, 0.4)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(211, 47, 47, 0.5)' }
+        }
+      default:
+        return {
+          ...baseStyles,
+          background: 'rgba(158, 158, 158, 0.2)',
+          color: '#424242',
+          fontWeight: 500,
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 8px rgba(0, 0, 0, 0.15)' }
+        }
+    }
+  }
+
   const getCategoryLabel = (category) => {
     const labels = {
       SYSTEM: t('tickets.categorySystem'),
@@ -308,30 +420,110 @@ const Tickets = () => {
     return labels[category] || category
   }
 
+  const getStatusLabel = (status) => {
+    const labels = {
+      OPEN: t('tickets.open'),
+      IN_PROGRESS: t('tickets.inProgress'),
+      RESOLVED: t('tickets.resolved'),
+      CLOSED: t('tickets.closed'),
+      WAITING_FOR_CUSTOMER: t('tickets.waitingForCustomer')
+    }
+    return labels[status] || status
+  }
+
+  const getPriorityLabel = (priority) => {
+    const labels = {
+      LOW: t('tickets.priorityLow'),
+      MEDIUM: t('tickets.priorityMedium'),
+      HIGH: t('tickets.priorityHigh'),
+      CRITICAL: t('tickets.priorityCritical')
+    }
+    return labels[priority] || priority
+  }
+
   const getImageUrl = (attachmentUrl) => {
     if (!attachmentUrl) return null
     // If it's a relative path, construct full URL
     if (attachmentUrl.startsWith('uploads/')) {
       // Extract the file path after uploads/
       const filePath = attachmentUrl.replace('uploads/', '')
-      return `/api/general-tickets/files?path=${encodeURIComponent(attachmentUrl)}`
+      return `/api/company-tickets/files?path=${encodeURIComponent(attachmentUrl)}`
     }
     return attachmentUrl
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box
+      sx={{
+        minHeight: 'calc(100vh - 64px)',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        position: 'relative',
+        margin: -3,
+        padding: 3,
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }
+      }}
+    >
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          {isAdmin ? 'HR Tickets Management' : 'Create Ticket to Admin'}
+          <Box>
+            <Box display="flex" alignItems="center" gap={2} mb={1}>
+              <Box
+                sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)'
+                }}
+              >
+                <Support sx={{ fontSize: 28, color: 'white' }} />
+              </Box>
+              <Box>
+                <Typography 
+                  variant="h4"
+                  sx={{
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                  }}
+                >
+          {isAdmin ? t('pageTitles.supportTickets') : t('pageTitles.createTicketToAdmin')}
         </Typography>
+              </Box>
+            </Box>
+          </Box>
         {isHR && (
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => setOpenCreate(true)}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
           >
-            Create Ticket
+            {t('tickets.createTicket')}
           </Button>
         )}
       </Box>
@@ -369,17 +561,26 @@ const Tickets = () => {
           </CardContent>
         </Card>
       ) : (
-        <TableContainer component={Paper}>
+        <TableContainer 
+          component={Paper}
+          sx={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+          }}
+        >
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>{t('tickets.title')}</TableCell>
-                <TableCell>{t('tickets.category')}</TableCell>
-                <TableCell>{t('tickets.priority')}</TableCell>
-                <TableCell>{t('tickets.status')}</TableCell>
-                {isAdmin && <TableCell>{t('tickets.createdBy')}</TableCell>}
-                <TableCell>{t('tickets.createdAt')}</TableCell>
-                <TableCell>{t('common.actions')}</TableCell>
+                <TableCell><strong>{t('tickets.title')}</strong></TableCell>
+                <TableCell><strong>{t('tickets.category')}</strong></TableCell>
+                <TableCell><strong>{t('tickets.priority')}</strong></TableCell>
+                <TableCell><strong>{t('tickets.status')}</strong></TableCell>
+                {isAdmin && <TableCell><strong>{t('tickets.createdBy')}</strong></TableCell>}
+                <TableCell><strong>{t('tickets.createdAt')}</strong></TableCell>
+                <TableCell><strong>{t('common.actions')}</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -408,16 +609,16 @@ const Tickets = () => {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={ticket.priority}
-                      color={getPriorityColor(ticket.priority)}
+                      label={getPriorityLabel(ticket.priority)}
                       size="small"
+                      sx={getPriorityChipStyles(ticket.priority)}
                     />
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={ticket.status}
-                      color={getStatusColor(ticket.status)}
+                      label={getStatusLabel(ticket.status)}
                       size="small"
+                      sx={getStatusChipStyles(ticket.status)}
                     />
                   </TableCell>
                   {isAdmin && (
@@ -454,8 +655,46 @@ const Tickets = () => {
       )}
 
       {/* Create Ticket Dialog */}
-      <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="md" fullWidth>
-        <DialogTitle>{t('tickets.createTicketToAdmin')}</DialogTitle>
+      <Dialog 
+        open={openCreate} 
+        onClose={() => setOpenCreate(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+              opacity: 0.8
+            }
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            pb: 2
+          }}
+        >
+          {t('tickets.createTicketToAdmin')}
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>
             <TextField
@@ -544,24 +783,42 @@ const Tickets = () => {
             </Box>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => {
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button 
+            onClick={() => {
             setOpenCreate(false)
             setNewTicket({ title: '', description: '', priority: 'MEDIUM', category: 'SYSTEM' })
             setAttachment(null)
             setPreview(null)
             setError('')
-          }}>
+            }}
+            sx={{ borderRadius: 2 }}
+          >
             {t('common.cancel')}
           </Button>
-          <Button onClick={handleCreateTicket} variant="contained">
+          <Button 
+            onClick={handleCreateTicket} 
+            variant="contained"
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
             {t('tickets.createTicket')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* View Ticket Dialog */}
-      <Dialog open={openView} onClose={() => {
+      <Dialog 
+        open={openView} 
+        onClose={() => {
         setOpenView(false)
         setSelectedTicket(null)
         setComments([])
@@ -571,15 +828,53 @@ const Tickets = () => {
           URL.revokeObjectURL(attachmentObjectUrl)
           setAttachmentObjectUrl(null)
         }
-      }} maxWidth="md" fullWidth>
-        <DialogTitle>
+        }} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+              opacity: 0.8
+            }
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            pb: 2
+          }}
+        >
+          <Box component="span">
           {t('tickets.ticketDetails')}
+          </Box>
           {selectedTicket && (
             <Chip
-              label={selectedTicket.status}
-              color={getStatusColor(selectedTicket.status)}
+              label={getStatusLabel(selectedTicket.status)}
               size="small"
-              sx={{ ml: 2 }}
+              sx={getStatusChipStyles(selectedTicket.status)}
             />
           )}
         </DialogTitle>
@@ -592,9 +887,9 @@ const Tickets = () => {
               <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                 <Chip label={getCategoryLabel(selectedTicket.category)} size="small" />
                 <Chip
-                  label={selectedTicket.priority}
-                  color={getPriorityColor(selectedTicket.priority)}
+                  label={getPriorityLabel(selectedTicket.priority)}
                   size="small"
+                  sx={getPriorityChipStyles(selectedTicket.priority)}
                 />
               </Box>
               <Typography variant="body1" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
@@ -698,33 +993,61 @@ const Tickets = () => {
                       size="small"
                       sx={{ mb: 1 }}
                     />
-                    <Button
-                      variant="contained"
-                      onClick={handleAddComment}
-                      disabled={!newComment.trim()}
-                      size="small"
-                    >
-                      {t('tickets.sendMessage')}
-                    </Button>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                      <Button
+                        variant="contained"
+                        onClick={handleAddComment}
+                        disabled={!newComment.trim()}
+                        size="small"
+                        sx={{
+                          borderRadius: 2,
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                          '&:hover': {
+                            background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                            boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                            transform: 'translateY(-2px)'
+                          }
+                        }}
+                      >
+                        {t('tickets.sendMessage')}
+                      </Button>
+                    </Box>
                   </Box>
                 )}
               </Box>
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
           {isAdmin && selectedTicket && selectedTicket.status !== 'RESOLVED' && (
             <Button
               onClick={() => handleResolveTicket(selectedTicket.id)}
               variant="contained"
               color="success"
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)',
+                boxShadow: '0 4px 16px rgba(76, 175, 80, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #388e3c 0%, #4caf50 100%)',
+                  boxShadow: '0 6px 20px rgba(76, 175, 80, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
             >
               {t('tickets.resolveTicket')}
             </Button>
           )}
-          <Button onClick={() => setOpenView(false)}>{t('common.close')}</Button>
+          <Button 
+            onClick={() => setOpenView(false)}
+            sx={{ borderRadius: 2 }}
+          >
+            {t('common.close')}
+          </Button>
         </DialogActions>
       </Dialog>
+      </Box>
     </Box>
   )
 }

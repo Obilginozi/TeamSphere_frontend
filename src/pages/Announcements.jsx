@@ -55,7 +55,7 @@ const Announcements = () => {
     try {
       setLoading(true)
       setError(null)
-      const endpoint = (user?.role === 'ADMIN' || user?.role === 'HR') ? '/announcements' : '/announcements/active'
+      const endpoint = (user?.role === 'ADMIN' || user?.role === 'HR' || user?.role === 'DEPARTMENT_MANAGER') ? '/announcements' : '/announcements/active'
       const response = await api.get(endpoint)
       setAnnouncements(response.data.data || [])
     } catch (err) {
@@ -143,7 +143,7 @@ const Announcements = () => {
     setFormData({ title: '', content: '', isActive: true })
   }
 
-  const canManage = user?.role === 'ADMIN' || user?.role === 'HR'
+  const canManage = user?.role === 'ADMIN' || user?.role === 'HR' || user?.role === 'DEPARTMENT_MANAGER'
 
   if (loading) {
     return (
@@ -157,16 +157,63 @@ const Announcements = () => {
   const inactiveAnnouncements = announcements.filter(a => a.isActive === false)
 
   return (
-    <Box>
+    <Box
+      sx={{
+        minHeight: 'calc(100vh - 64px)',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        position: 'relative',
+        margin: -3,
+        padding: 3,
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }
+      }}
+    >
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
       {/* Header */}
       <Box mb={4} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
         <Box>
-          <Typography variant="h4" gutterBottom>
-            {t('announcements.title')}
+            <Box display="flex" alignItems="center" gap={2} mb={1}>
+              <Box
+                sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)'
+                }}
+              >
+                <CampaignIcon sx={{ fontSize: 28, color: 'white' }} />
+              </Box>
+              <Box>
+                <Typography 
+                  variant="h4"
+                  sx={{
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                  }}
+                >
+            {t('pageTitles.announcements')}
           </Typography>
           <Typography variant="body2" color="textSecondary">
             {t('announcements.subtitle')}
           </Typography>
+              </Box>
+            </Box>
         </Box>
         <Box display="flex" gap={2}>
           <Button
@@ -182,6 +229,16 @@ const Announcements = () => {
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => handleOpenDialog()}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
             >
               {t('announcements.createAnnouncement')}
             </Button>
@@ -218,6 +275,16 @@ const Announcements = () => {
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => handleOpenDialog()}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
             >
               {t('announcements.createFirst')}
             </Button>
@@ -234,7 +301,20 @@ const Announcements = () => {
               <Grid container spacing={3}>
                 {activeAnnouncements.map((announcement) => (
                   <Grid item xs={12} md={6} key={announcement.id}>
-                    <Card>
+                    <Card
+                      sx={{
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        backdropFilter: 'blur(20px)',
+                        borderRadius: 3,
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)'
+                        }
+                      }}
+                    >
                       <CardContent>
                         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
                           <Box flex={1}>
@@ -333,8 +413,37 @@ const Announcements = () => {
       )}
 
       {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle>
+      <Dialog 
+        open={dialogOpen} 
+        onClose={handleCloseDialog} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+              transform: 'translateY(-2px)'
+            }
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            pb: 2
+          }}
+        >
           {editMode ? t('announcements.editAnnouncement') : t('announcements.createAnnouncement')}
         </DialogTitle>
         <DialogContent>
@@ -376,16 +485,32 @@ const Announcements = () => {
             )}
           </Grid>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>{t('announcements.cancel')}</Button>
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button 
+            onClick={handleCloseDialog}
+            sx={{ borderRadius: 2 }}
+          >
+            {t('announcements.cancel')}
+          </Button>
           <Button
             onClick={editMode ? handleEdit : handleAdd}
             variant="contained"
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                transform: 'translateY(-2px)'
+              }
+            }}
           >
             {editMode ? t('common.save') : t('common.add')}
           </Button>
         </DialogActions>
       </Dialog>
+      </Box>
     </Box>
   )
 }

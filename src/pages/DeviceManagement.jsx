@@ -87,7 +87,7 @@ const DeviceManagement = () => {
       setFilteredDevices(response.data.data || [])
     } catch (err) {
       console.error('Failed to fetch devices:', err)
-      setError('Failed to load devices. Please try again.')
+      setError(t('deviceManagement.failedToLoad'))
     } finally {
       setLoading(false)
     }
@@ -96,7 +96,7 @@ const DeviceManagement = () => {
   const handleAddDevice = async () => {
     try {
       await api.post('/devices', newDevice)
-      setSuccess('Device added successfully!')
+      setSuccess(t('deviceManagement.addedSuccessfully'))
       setAddDialogOpen(false)
       setNewDevice({
         employeeId: '',
@@ -107,40 +107,40 @@ const DeviceManagement = () => {
       })
       await fetchDevices()
     } catch (err) {
-      setError('Failed to add device. Please try again.')
+      setError(t('deviceManagement.failedToAdd'))
     }
   }
 
   const handleBlockDevice = async (deviceId) => {
     try {
       await api.put(`/api/devices/${deviceId}/block`)
-      setSuccess('Device blocked successfully!')
+      setSuccess(t('deviceManagement.blockedSuccessfully'))
       setBlockDialogOpen(false)
       setSelectedDevice(null)
       await fetchDevices()
     } catch (err) {
-      setError('Failed to block device. Please try again.')
+      setError(t('deviceManagement.failedToBlock'))
     }
   }
 
   const handleUnblockDevice = async (deviceId) => {
     try {
       await api.put(`/api/devices/${deviceId}/unblock`)
-      setSuccess('Device unblocked successfully!')
+      setSuccess(t('deviceManagement.unblockedSuccessfully'))
       await fetchDevices()
     } catch (err) {
-      setError('Failed to unblock device. Please try again.')
+      setError(t('deviceManagement.failedToUnblock'))
     }
   }
 
   const handleDeleteDevice = async (deviceId) => {
-    if (window.confirm('Are you sure you want to delete this device?')) {
+    if (window.confirm(t('deviceManagement.confirmDelete'))) {
       try {
         await api.delete(`/api/devices/${deviceId}`)
-        setSuccess('Device deleted successfully!')
+        setSuccess(t('deviceManagement.deletedSuccessfully'))
         await fetchDevices()
       } catch (err) {
-        setError('Failed to delete device. Please try again.')
+        setError(t('deviceManagement.failedToDelete'))
       }
     }
   }
@@ -152,6 +152,15 @@ const DeviceManagement = () => {
       case 'DESKTOP': return <ComputerIcon />
       default: return <DevicesOtherIcon />
     }
+  }
+
+  const getStatusLabel = (status) => {
+    const labels = {
+      ACTIVE: t('common.status.active'),
+      BLOCKED: t('common.status.blocked'),
+      PENDING: t('common.status.pending')
+    }
+    return labels[status] || status
   }
 
   const getStatusColor = (status) => {
@@ -179,7 +188,7 @@ const DeviceManagement = () => {
       <Box mb={4} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
         <Box>
           <Typography variant="h4" gutterBottom>
-            Device Management
+            {t('pageTitles.deviceManagement')}
           </Typography>
           <Typography variant="body2" color="textSecondary">
             Manage employee devices and enforce security policies
@@ -355,7 +364,7 @@ const DeviceManagement = () => {
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={device.status || 'ACTIVE'}
+                          label={getStatusLabel(device.status || 'ACTIVE')}
                           color={getStatusColor(device.status)}
                           size="small"
                         />
@@ -470,7 +479,22 @@ const DeviceManagement = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddDevice} variant="contained">Add Device</Button>
+          <Button 
+            onClick={handleAddDevice} 
+            variant="contained"
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
+            Add Device
+          </Button>
         </DialogActions>
       </Dialog>
 

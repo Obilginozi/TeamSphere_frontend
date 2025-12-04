@@ -59,7 +59,7 @@ const Notifications = () => {
       setNotifications(response.data.data || [])
     } catch (err) {
       console.error('Failed to fetch notifications:', err)
-      setError('Failed to load notifications. Please try again.')
+      setError(t('notificationsPage.failedToLoad'))
     } finally {
       setLoading(false)
     }
@@ -72,7 +72,7 @@ const Notifications = () => {
         n.id === id ? { ...n, read: true } : n
       ))
     } catch (err) {
-      setError('Failed to mark notification as read.')
+      setError(t('notificationsPage.failedToMarkRead'))
     }
   }
 
@@ -81,7 +81,7 @@ const Notifications = () => {
       await api.put('/notifications/read-all')
       setNotifications(notifications.map(n => ({ ...n, read: true })))
     } catch (err) {
-      setError('Failed to mark all notifications as read.')
+      setError(t('notificationsPage.failedToMarkAllRead'))
     }
   }
 
@@ -90,17 +90,17 @@ const Notifications = () => {
       await api.delete(`/notifications/${id}`)
       setNotifications(notifications.filter(n => n.id !== id))
     } catch (err) {
-      setError('Failed to delete notification.')
+      setError(t('notificationsPage.failedToDelete'))
     }
   }
 
   const handleDeleteAll = async () => {
-    if (window.confirm('Are you sure you want to delete all notifications?')) {
+    if (window.confirm(t('notificationsPage.deleteAllConfirm'))) {
       try {
         await api.delete('/notifications/all')
         setNotifications([])
       } catch (err) {
-        setError('Failed to delete notifications.')
+        setError(t('notificationsPage.failedToDeleteAll'))
       }
     }
   }
@@ -162,11 +162,11 @@ const Notifications = () => {
         <Box>
           <Typography variant="h4" gutterBottom>
             <Badge badgeContent={unreadCount} color="error">
-              Notifications
+              {t('pageTitles.notifications')}
             </Badge>
           </Typography>
           <Typography variant="body2" color="textSecondary">
-            Stay updated with your latest activities
+            {t('notificationsPage.stayUpdated')}
           </Typography>
         </Box>
         <Box display="flex" gap={2}>
@@ -176,14 +176,14 @@ const Notifications = () => {
             onClick={fetchNotifications}
             disabled={loading}
           >
-            Refresh
+            {t('common.refresh')}
           </Button>
           <Button
             variant="outlined"
             startIcon={<FilterListIcon />}
             onClick={(e) => setFilterAnchorEl(e.currentTarget)}
           >
-            Filter
+            {t('common.filter')}
           </Button>
           {unreadCount > 0 && (
             <Button
@@ -191,7 +191,7 @@ const Notifications = () => {
               startIcon={<DoneAllIcon />}
               onClick={handleMarkAllAsRead}
             >
-              Mark All Read
+              {t('notificationsPage.markAllRead')}
             </Button>
           )}
           {notifications.length > 0 && (
@@ -201,7 +201,7 @@ const Notifications = () => {
               startIcon={<DeleteIcon />}
               onClick={handleDeleteAll}
             >
-              Delete All
+              {t('notificationsPage.deleteAll')}
             </Button>
           )}
         </Box>
@@ -221,28 +221,28 @@ const Notifications = () => {
         onClose={() => setFilterAnchorEl(null)}
       >
         <MenuItem onClick={() => { setSelectedFilter('ALL'); setFilterAnchorEl(null) }}>
-          All Types
+          {t('notificationsPage.allTypes')}
         </MenuItem>
         <MenuItem onClick={() => { setSelectedFilter('LEAVE'); setFilterAnchorEl(null) }}>
-          Leave Requests
+          {t('notificationsPage.leaveRequests')}
         </MenuItem>
         <MenuItem onClick={() => { setSelectedFilter('TICKET'); setFilterAnchorEl(null) }}>
-          Tickets
+          {t('notificationsPage.tickets')}
         </MenuItem>
         <MenuItem onClick={() => { setSelectedFilter('ALERT'); setFilterAnchorEl(null) }}>
-          Alerts
+          {t('notificationsPage.alerts')}
         </MenuItem>
         <MenuItem onClick={() => { setSelectedFilter('ANNOUNCEMENT'); setFilterAnchorEl(null) }}>
-          Announcements
+          {t('notificationsPage.announcements')}
         </MenuItem>
       </Menu>
 
       {/* Tabs */}
       <Card sx={{ mb: 3 }}>
         <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)}>
-          <Tab label={`All (${notifications.length})`} />
-          <Tab label={`Unread (${unreadCount})`} />
-          <Tab label={`Read (${notifications.length - unreadCount})`} />
+          <Tab label={`${t('notificationsPage.all')} (${notifications.length})`} />
+          <Tab label={`${t('notificationsPage.unread')} (${unreadCount})`} />
+          <Tab label={`${t('notificationsPage.read')} (${notifications.length - unreadCount})`} />
         </Tabs>
       </Card>
 
@@ -253,10 +253,10 @@ const Notifications = () => {
             <Box textAlign="center" py={5}>
               <NotificationsIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
               <Typography variant="h6" color="textSecondary">
-                No notifications to show
+                {t('notificationsPage.noNotifications')}
               </Typography>
               <Typography variant="body2" color="textSecondary">
-                {tabValue === 1 ? "You're all caught up!" : "Check back later for updates"}
+                {tabValue === 1 ? t('notificationsPage.allCaughtUp') : t('notificationsPage.checkBackLater')}
               </Typography>
             </Box>
           ) : (
@@ -273,7 +273,7 @@ const Notifications = () => {
                   secondaryAction={
                     <Box display="flex" gap={1}>
                       {!notification.read && (
-                        <Tooltip title="Mark as read">
+                        <Tooltip title={t('notificationsPage.markAsRead')}>
                           <IconButton
                             edge="end"
                             size="small"
@@ -283,7 +283,7 @@ const Notifications = () => {
                           </IconButton>
                         </Tooltip>
                       )}
-                      <Tooltip title="Delete">
+                      <Tooltip title={t('notificationsPage.deleteNotification')}>
                         <IconButton
                           edge="end"
                           size="small"

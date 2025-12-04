@@ -77,14 +77,14 @@ const CompanySetupWizard = () => {
   });
 
   const steps = [
-    { label: 'Company Information', icon: <BusinessIcon /> },
-    { label: 'Departments', icon: <PeopleIcon /> },
-    { label: 'Settings', icon: <SettingsIcon /> },
-    { label: 'Complete', icon: <CheckCircleIcon /> }
+    { label: t('companySetupWizard.companyInformation'), icon: <BusinessIcon /> },
+    { label: t('companySetupWizard.departments'), icon: <PeopleIcon /> },
+    { label: t('companySetupWizard.settings'), icon: <SettingsIcon /> },
+    { label: t('companySetupWizard.complete'), icon: <CheckCircleIcon /> }
   ];
   
   // Adjust steps based on whether we're showing credentials
-  const displaySteps = hrCredentials ? [...steps, { label: 'HR Credentials', icon: <CheckCircleIcon /> }] : steps;
+  const displaySteps = hrCredentials ? [...steps, { label: t('companySetupWizard.hrCredentials'), icon: <CheckCircleIcon /> }] : steps;
 
   const countries = [
     { code: 'TR', name: 'Turkey', flag: '🇹🇷' },
@@ -215,10 +215,10 @@ const CompanySetupWizard = () => {
         setHrCredentials(response.data.data);
         setActiveStep(activeStep + 1); // Move to credentials display step
       } else {
-        setError('Setup completed but HR credentials not received.');
+        setError(t('companySetupWizard.hrCredentialsNotReceived'));
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Setup failed. Please try again.');
+      setError(err.response?.data?.message || t('companySetupWizard.setupFailed'));
     } finally {
       setLoading(false);
     }
@@ -226,12 +226,12 @@ const CompanySetupWizard = () => {
 
   const renderCompanyInfo = () => (
     <Box>
-      <Typography variant="h6" gutterBottom>Company Information</Typography>
+      <Typography variant="h6" gutterBottom>{t('companySetupWizard.companyInformation')}</Typography>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Company Name"
+            label={t('companySetupWizard.companyName')}
             value={companyInfo.name}
             onChange={(e) => handleCompanyInfoChange('name', e.target.value)}
             required
@@ -240,7 +240,7 @@ const CompanySetupWizard = () => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Email"
+            label={t('companySetupWizard.email')}
             type="email"
             value={companyInfo.email}
             onChange={(e) => handleCompanyInfoChange('email', e.target.value)}
@@ -250,7 +250,7 @@ const CompanySetupWizard = () => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Phone Number"
+            label={t('companySetupWizard.phoneNumber')}
             value={companyInfo.phone}
             onChange={(e) => handleCompanyInfoChange('phone', e.target.value)}
             required
@@ -258,7 +258,7 @@ const CompanySetupWizard = () => {
         </Grid>
         <Grid item xs={12} md={6}>
           <FormControl fullWidth>
-            <InputLabel>Country</InputLabel>
+            <InputLabel>{t('companySetupWizard.country')}</InputLabel>
             <Select
               value={companyInfo.country}
               onChange={(e) => handleCompanyInfoChange('country', e.target.value)}
@@ -274,7 +274,7 @@ const CompanySetupWizard = () => {
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="Address"
+            label={t('companySetupWizard.address')}
             multiline
             rows={3}
             value={companyInfo.address}
@@ -284,7 +284,7 @@ const CompanySetupWizard = () => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Tax Number"
+            label={t('companySetupWizard.taxNumber')}
             value={companyInfo.taxNumber}
             onChange={(e) => handleCompanyInfoChange('taxNumber', e.target.value)}
           />
@@ -292,14 +292,14 @@ const CompanySetupWizard = () => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Website"
+            label={t('companySetupWizard.website')}
             value={companyInfo.website}
             onChange={(e) => handleCompanyInfoChange('website', e.target.value)}
           />
         </Grid>
         <Grid item xs={12} md={6}>
           <FormControl fullWidth>
-            <InputLabel>Industry</InputLabel>
+            <InputLabel>{t('companySetupWizard.industry')}</InputLabel>
             <Select
               value={companyInfo.industry}
               onChange={(e) => handleCompanyInfoChange('industry', e.target.value)}
@@ -312,7 +312,7 @@ const CompanySetupWizard = () => {
         </Grid>
         <Grid item xs={12} md={6}>
           <FormControl fullWidth>
-            <InputLabel>Company Size</InputLabel>
+            <InputLabel>{t('companySetupWizard.companySize')}</InputLabel>
             <Select
               value={companyInfo.size}
               onChange={(e) => handleCompanyInfoChange('size', e.target.value)}
@@ -326,7 +326,7 @@ const CompanySetupWizard = () => {
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="Description"
+            label={t('companySetupWizard.description')}
             multiline
             rows={3}
             value={companyInfo.description}
@@ -339,9 +339,9 @@ const CompanySetupWizard = () => {
 
   const renderDepartments = () => (
     <Box>
-      <Typography variant="h6" gutterBottom>Company Departments</Typography>
+      <Typography variant="h6" gutterBottom>{t('companySetupWizard.departments')}</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Set up your organizational structure. You can add more departments later.
+        {t('companySetupWizard.setUpOrganizationalStructure')}
       </Typography>
       
       {departments.map((dept, index) => (
@@ -351,7 +351,7 @@ const CompanySetupWizard = () => {
               <Grid item xs={12} md={5}>
                 <TextField
                   fullWidth
-                  label="Department Name"
+                  label={t('companySetupWizard.departmentName')}
                   value={dept.name}
                   onChange={(e) => handleDepartmentChange(index, 'name', e.target.value)}
                 />
@@ -359,7 +359,7 @@ const CompanySetupWizard = () => {
               <Grid item xs={12} md={5}>
                 <TextField
                   fullWidth
-                  label="Description"
+                  label={t('companySetupWizard.description')}
                   value={dept.description}
                   onChange={(e) => handleDepartmentChange(index, 'description', e.target.value)}
                 />
@@ -370,7 +370,7 @@ const CompanySetupWizard = () => {
                   onClick={() => removeDepartment(index)}
                   disabled={departments.length <= 1}
                 >
-                  Remove
+                  {t('companySetupWizard.remove')}
                 </Button>
               </Grid>
             </Grid>
@@ -379,19 +379,19 @@ const CompanySetupWizard = () => {
       ))}
       
       <Button variant="outlined" onClick={addDepartment} sx={{ mt: 2 }}>
-        Add Department
+        {t('companySetupWizard.addDepartment')}
       </Button>
     </Box>
   );
 
   const renderSettings = () => (
     <Box>
-      <Typography variant="h6" gutterBottom>Company Settings</Typography>
+      <Typography variant="h6" gutterBottom>{t('companySetupWizard.settings')}</Typography>
       
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <FormControl fullWidth>
-            <InputLabel>Timezone</InputLabel>
+            <InputLabel>{t('companySetupWizard.timezone')}</InputLabel>
             <Select
               value={settings.timezone}
               onChange={(e) => handleSettingsChange('timezone', e.target.value)}
@@ -404,7 +404,7 @@ const CompanySetupWizard = () => {
         </Grid>
         <Grid item xs={12} md={6}>
           <FormControl fullWidth>
-            <InputLabel>Currency</InputLabel>
+            <InputLabel>{t('companySetupWizard.currency')}</InputLabel>
             <Select
               value={settings.currency}
               onChange={(e) => handleSettingsChange('currency', e.target.value)}
@@ -419,24 +419,50 @@ const CompanySetupWizard = () => {
         </Grid>
         
         <Grid item xs={12}>
-          <Typography variant="subtitle1" gutterBottom>Work Days</Typography>
+          <Typography variant="subtitle1" gutterBottom>{t('companySetupWizard.workDays')}</Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {workDays.map(day => (
-              <Chip
-                key={day.value}
-                label={day.label}
-                onClick={() => handleWorkDaysChange(day.value)}
-                color={settings.workDays.includes(day.value) ? 'primary' : 'default'}
-                variant={settings.workDays.includes(day.value) ? 'filled' : 'outlined'}
-              />
-            ))}
+            {workDays.map(day => {
+              const isSelected = settings.workDays.includes(day.value);
+              return (
+                <Chip
+                  key={day.value}
+                  label={t(`companySetupWizard.${day.value.toLowerCase()}`)}
+                  onClick={() => handleWorkDaysChange(day.value)}
+                  sx={{
+                    borderRadius: 2,
+                    fontWeight: 600,
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer',
+                    ...(isSelected ? {
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white',
+                      boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                        boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)',
+                        transform: 'translateY(-2px)'
+                      }
+                    } : {
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      color: '#424242',
+                      border: '1px solid rgba(0, 0, 0, 0.12)',
+                      '&:hover': {
+                        background: 'rgba(102, 126, 234, 0.08)',
+                        borderColor: '#667eea',
+                        transform: 'translateY(-1px)'
+                      }
+                    })
+                  }}
+                />
+              );
+            })}
           </Box>
         </Grid>
         
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Work Start Time"
+            label={t('companySetupWizard.workStartTime')}
             type="time"
             value={settings.workHours.start}
             onChange={(e) => handleSettingsChange('workHours', { ...settings.workHours, start: e.target.value })}
@@ -446,7 +472,7 @@ const CompanySetupWizard = () => {
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
-            label="Work End Time"
+            label={t('companySetupWizard.workEndTime')}
             type="time"
             value={settings.workHours.end}
             onChange={(e) => handleSettingsChange('workHours', { ...settings.workHours, end: e.target.value })}
@@ -455,22 +481,48 @@ const CompanySetupWizard = () => {
         </Grid>
         
         <Grid item xs={12}>
-          <Typography variant="subtitle1" gutterBottom>Leave Types</Typography>
+          <Typography variant="subtitle1" gutterBottom>{t('companySetupWizard.leaveTypes')}</Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {leaveTypes.map(leaveType => (
-              <Chip
-                key={leaveType.value}
-                label={leaveType.label}
-                onClick={() => handleLeaveTypesChange(leaveType.value)}
-                color={settings.leaveTypes.includes(leaveType.value) ? 'primary' : 'default'}
-                variant={settings.leaveTypes.includes(leaveType.value) ? 'filled' : 'outlined'}
-              />
-            ))}
+            {leaveTypes.map(leaveType => {
+              const isSelected = settings.leaveTypes.includes(leaveType.value);
+              return (
+                <Chip
+                  key={leaveType.value}
+                  label={t(`companySetupWizard.${leaveType.value.toLowerCase()}`)}
+                  onClick={() => handleLeaveTypesChange(leaveType.value)}
+                  sx={{
+                    borderRadius: 2,
+                    fontWeight: 600,
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer',
+                    ...(isSelected ? {
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white',
+                      boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                        boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)',
+                        transform: 'translateY(-2px)'
+                      }
+                    } : {
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      color: '#424242',
+                      border: '1px solid rgba(0, 0, 0, 0.12)',
+                      '&:hover': {
+                        background: 'rgba(102, 126, 234, 0.08)',
+                        borderColor: '#667eea',
+                        transform: 'translateY(-1px)'
+                      }
+                    })
+                  }}
+                />
+              );
+            })}
           </Box>
         </Grid>
         
         <Grid item xs={12}>
-          <Typography variant="subtitle1" gutterBottom>Attendance Method</Typography>
+          <Typography variant="subtitle1" gutterBottom>{t('companySetupWizard.attendanceMethod')}</Typography>
           <Grid container spacing={2}>
             {attendanceMethods.map(method => (
               <Grid item xs={12} md={6} key={method.value}>
@@ -502,43 +554,43 @@ const CompanySetupWizard = () => {
       return (
         <Box>
           <Typography variant="h5" gutterBottom sx={{ color: 'success.main', fontWeight: 600 }}>
-            Setup Complete! 🎉
+            {t('companySetupWizard.setupComplete')}
           </Typography>
           <Typography variant="body1" sx={{ mb: 4 }}>
-            Your company has been configured successfully. An HR account has been created for you to share with the company.
+            {t('companySetupWizard.companyConfiguredSuccessfully')}
           </Typography>
           
           <Alert severity="info" sx={{ mb: 4 }}>
             <Typography variant="subtitle2" gutterBottom>
-              <strong>Important:</strong> Please save these HR account credentials. You can share them with the company so their HR can manage employees and all processes.
+              <strong>{t('companySetupWizard.important')}</strong> {t('companySetupWizard.saveHrCredentials')}
             </Typography>
           </Alert>
           
           <Card sx={{ mb: 3, border: '2px solid', borderColor: 'primary.main' }}>
             <CardContent>
               <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
-                HR Account Credentials
+                {t('companySetupWizard.hrAccountCredentials')}
               </Typography>
               <Divider sx={{ my: 2 }} />
               <Grid container spacing={2}>
                 <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary">Company:</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('companyManagement.company')}:</Typography>
                   <Typography variant="body1" fontWeight={500}>{hrCredentials.companyName}</Typography>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary">HR Name:</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('companySetupWizard.hrName')}</Typography>
                   <Typography variant="body1" fontWeight={500}>
                     {hrCredentials.hrFirstName} {hrCredentials.hrLastName}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary">Email:</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('companySetupWizard.email')}:</Typography>
                   <Typography variant="body1" fontWeight={500} sx={{ fontFamily: 'monospace' }}>
                     {hrCredentials.hrEmail}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary">Password:</Typography>
+                  <Typography variant="body2" color="text.secondary">{t('companySetupWizard.password')}</Typography>
                   <Typography variant="body1" fontWeight={500} sx={{ fontFamily: 'monospace', color: 'error.main' }}>
                     {hrCredentials.hrPassword}
                   </Typography>
@@ -553,18 +605,18 @@ const CompanySetupWizard = () => {
               color="primary"
               onClick={() => {
                 // Copy credentials to clipboard
-                const text = `HR Account Credentials\n\nCompany: ${hrCredentials.companyName}\nEmail: ${hrCredentials.hrEmail}\nPassword: ${hrCredentials.hrPassword}`;
+                const text = `${t('companySetupWizard.hrAccountCredentials')}\n\n${t('companyManagement.company')}: ${hrCredentials.companyName}\n${t('companySetupWizard.email')}: ${hrCredentials.hrEmail}\n${t('companySetupWizard.password')}: ${hrCredentials.hrPassword}`;
                 navigator.clipboard.writeText(text);
-                alert('Credentials copied to clipboard!');
+                alert(t('companySetupWizard.copyCredentials'));
               }}
             >
-              Copy Credentials
+              {t('companySetupWizard.copyCredentials')}
             </Button>
             <Button
               variant="outlined"
               onClick={() => navigate('/companies')}
             >
-              Go to Company Management
+              {t('companySetupWizard.goToCompanyManagement')}
             </Button>
           </Box>
         </Box>
@@ -573,16 +625,16 @@ const CompanySetupWizard = () => {
     
     return (
       <Box>
-        <Typography variant="h6" gutterBottom>Setup Complete!</Typography>
+        <Typography variant="h6" gutterBottom>{t('companySetupWizard.setupComplete')}</Typography>
         <Typography variant="body1" sx={{ mb: 3 }}>
-          Your company has been configured successfully. You can now start adding employees and managing your workforce.
+          {t('companySetupWizard.companyConfiguredSuccessfully')}
         </Typography>
         
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <Card>
               <CardContent>
-                <Typography variant="subtitle1" gutterBottom>Company Information</Typography>
+                <Typography variant="subtitle1" gutterBottom>{t('companySetupWizard.companyInformation')}</Typography>
                 <Typography variant="body2">{companyInfo.name}</Typography>
                 <Typography variant="body2">{companyInfo.email}</Typography>
                 <Typography variant="body2">{companyInfo.phone}</Typography>
@@ -592,7 +644,7 @@ const CompanySetupWizard = () => {
           <Grid item xs={12} md={6}>
             <Card>
               <CardContent>
-                <Typography variant="subtitle1" gutterBottom>Departments</Typography>
+                <Typography variant="subtitle1" gutterBottom>{t('companySetupWizard.departments')}</Typography>
                 {departments.map((dept, index) => (
                   <Typography key={index} variant="body2">• {dept.name}</Typography>
                 ))}
@@ -612,16 +664,48 @@ const CompanySetupWizard = () => {
       case 0: return renderCompanyInfo();
       case 1: return renderDepartments();
       case 2: return renderSettings();
-      case 3: return hrCredentials ? renderComplete() : 'Review your setup';
+      case 3: return hrCredentials ? renderComplete() : t('companySetupWizard.reviewYourSetup');
       default: return 'Unknown step';
     }
   };
 
   return (
-    <Box sx={{ maxWidth: 1000, mx: 'auto', p: 3 }}>
-      <Typography variant="h4" gutterBottom align="center">
-        Company Setup Wizard
-      </Typography>
+    <Box
+      sx={{
+        minHeight: 'calc(100vh - 64px)',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        position: 'relative',
+        margin: -3,
+        padding: 3,
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }
+      }}
+    >
+      <Box sx={{ position: 'relative', zIndex: 1, maxWidth: 1000, mx: 'auto' }}>
+        <Typography 
+          variant="h4" 
+          gutterBottom 
+          align="center"
+          sx={{
+            fontWeight: 700,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            mb: 4
+          }}
+        >
+          {t('pageTitles.companySetupWizard')}
+        </Typography>
       
       <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
         {(hrCredentials ? displaySteps : steps).map((step, index) => (
@@ -637,15 +721,25 @@ const CompanySetupWizard = () => {
         </Alert>
       )}
 
-      <Paper sx={{ p: 3 }}>
+      <Paper 
+        sx={{ 
+          p: 3,
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: 3,
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+        }}
+      >
         {getStepContent(activeStep)}
         
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
           <Button
             disabled={activeStep === 0}
             onClick={handleBack}
+            sx={{ borderRadius: 2 }}
           >
-            Back
+            {t('common.back')}
           </Button>
           
           {activeStep === (hrCredentials ? displaySteps.length - 1 : steps.length - 1) ? (
@@ -653,8 +747,18 @@ const CompanySetupWizard = () => {
               <Button
                 variant="contained"
                 onClick={() => navigate('/companies')}
+                sx={{
+                  borderRadius: 2,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                    transform: 'translateY(-2px)'
+                  }
+                }}
               >
-                Go to Company Management
+                {t('companySetupWizard.goToCompanyManagement')}
               </Button>
             ) : (
               <Button
@@ -662,20 +766,45 @@ const CompanySetupWizard = () => {
                 onClick={handleComplete}
                 disabled={loading}
                 startIcon={loading ? <CircularProgress size={20} /> : <CheckCircleIcon />}
+                sx={{
+                  borderRadius: 2,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                    transform: 'translateY(-2px)'
+                  },
+                  '&:disabled': {
+                    background: 'rgba(0, 0, 0, 0.12)',
+                    color: 'rgba(0, 0, 0, 0.26)'
+                  }
+                }}
               >
-                {loading ? 'Completing...' : 'Complete Setup'}
+                {loading ? t('companySetupWizard.completing') : t('companySetupWizard.completeSetup')}
               </Button>
             )
           ) : (
             <Button
               variant="contained"
               onClick={handleNext}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
             >
-              Next
+              {t('common.next')}
             </Button>
           )}
         </Box>
       </Paper>
+      </Box>
     </Box>
   );
 };

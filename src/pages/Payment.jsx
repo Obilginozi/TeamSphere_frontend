@@ -184,7 +184,7 @@ const Payment = () => {
       const response = await api.post('/payment/process', paymentData);
       
       if (response.data.success) {
-        setSuccess('Payment processed successfully! Your account is being set up...');
+        setSuccess(t('payment.paymentProcessedSuccessfully'));
         setTimeout(() => {
           navigate('/login', { 
             state: { 
@@ -477,9 +477,9 @@ const Payment = () => {
   };
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
+    <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
       <Typography variant="h4" gutterBottom align="center">
-        Get Started with TeamSphere
+        {t('pageTitles.payment')}
       </Typography>
       
       <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
@@ -519,6 +519,20 @@ const Payment = () => {
               onClick={handlePayment}
               disabled={loading}
               startIcon={loading ? <CircularProgress size={20} /> : <CheckCircleIcon />}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                },
+                '&:disabled': {
+                  background: 'rgba(0, 0, 0, 0.12)',
+                  color: 'rgba(0, 0, 0, 0.26)'
+                }
+              }}
             >
               {loading ? t('payment.processing') : t('payment.completePayment')}
             </Button>
@@ -526,6 +540,16 @@ const Payment = () => {
             <Button
               variant="contained"
               onClick={handleNext}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
             >
               Next
             </Button>

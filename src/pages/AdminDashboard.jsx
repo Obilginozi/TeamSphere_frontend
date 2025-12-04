@@ -6,17 +6,18 @@ import {
   Box, Typography, Grid, Paper, Tab, Tabs, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Card, CardContent, LinearProgress,
   Chip, Alert, Button, TextField, Select, MenuItem, FormControl, InputLabel,
-  IconButton
+  IconButton, Fade, Zoom, Grow, Avatar, CircularProgress
 } from '@mui/material'
 import {
   TrendingUp, Error, Speed, Storage, Memory, Api, Warning, CheckCircle,
-  Refresh as RefreshIcon, Computer as ComputerIcon, CloudOff as CloudOffIcon
+  Refresh as RefreshIcon, Computer as ComputerIcon, CloudOff as CloudOffIcon,
+  Dashboard as DashboardIcon
 } from '@mui/icons-material'
 
 const AdminDashboard = () => {
   const { user } = useAuth()
   const { t } = useLanguage()
-  const [tab, setTab] = useState(0)
+  const [tab, setTab] = useState('0')
   const [loading, setLoading] = useState(true)
   const [overview, setOverview] = useState(null)
   const [apiLogs, setApiLogs] = useState([])
@@ -128,6 +129,94 @@ const AdminDashboard = () => {
     return `${diffDays} days ago`
   }
 
+  const StatCard = ({ title, value, icon, color, subtitle, index = 0 }) => (
+    <Grow in timeout={600 + (index * 100)}>
+      <Card 
+        sx={{ 
+          height: '100%',
+          cursor: 'default',
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: 3,
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          transition: 'all 0.3s ease',
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: color,
+            opacity: 0.8
+          },
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+            '&::before': {
+              opacity: 1
+            }
+          }
+        }}
+      >
+        <CardContent sx={{ p: 3 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Box flex={1}>
+              <Typography 
+                color="textSecondary" 
+                gutterBottom 
+                variant="body2"
+                sx={{ fontWeight: 500, mb: 1 }}
+              >
+                {title}
+              </Typography>
+              <Typography 
+                variant="h3" 
+                component="div"
+                sx={{ 
+                  fontWeight: 700,
+                  background: `linear-gradient(135deg, ${color} 0%, ${color}80 100%)`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  mb: subtitle ? 0.5 : 0
+                }}
+              >
+                {loading ? <CircularProgress size={28} /> : value}
+              </Typography>
+              {subtitle && (
+                <Typography 
+                  variant="caption" 
+                  color="textSecondary"
+                  sx={{ fontWeight: 500, fontSize: '0.75rem' }}
+                >
+                  {subtitle}
+                </Typography>
+              )}
+            </Box>
+            <Avatar 
+              sx={{ 
+                bgcolor: color, 
+                width: 64, 
+                height: 64,
+                boxShadow: `0 4px 20px ${color}40`,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'scale(1.1) rotate(5deg)'
+                }
+              }}
+            >
+              {icon}
+            </Avatar>
+          </Box>
+        </CardContent>
+      </Card>
+    </Grow>
+  )
+
   if (!user || user.role !== 'ADMIN') {
     return (
       <Box p={3}>
@@ -146,175 +235,272 @@ const AdminDashboard = () => {
   const offlineSystems = healthData.filter(h => h.healthStatus === 'OFFLINE').length
 
   return (
-    <Box p={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">{t('adminDashboard.title')}</Typography>
-        <Box display="flex" gap={2} alignItems="center">
-          <FormControl sx={{ minWidth: 150 }}>
-            <InputLabel>{t('adminDashboard.timeRange')}</InputLabel>
-            <Select value={timeRange} onChange={(e) => setTimeRange(e.target.value)} label={t('adminDashboard.timeRange')}>
-              <MenuItem value={1}>{t('adminDashboard.lastHour')}</MenuItem>
-              <MenuItem value={24}>{t('adminDashboard.last24Hours')}</MenuItem>
-              <MenuItem value={168}>{t('adminDashboard.lastWeek')}</MenuItem>
-              <MenuItem value={720}>{t('adminDashboard.lastMonth')}</MenuItem>
-            </Select>
-          </FormControl>
-          <Button
-            variant="outlined"
-            onClick={() => setAutoRefresh(!autoRefresh)}
+    <Box
+      sx={{
+        minHeight: 'calc(100vh - 64px)', // Subtract AppBar height
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        position: 'relative',
+        margin: -3, // Override Layout padding
+        padding: 3, // Restore padding for content
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }
+      }}
+    >
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
+        <Fade in timeout={600}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+            <Box display="flex" alignItems="center" gap={2}>
+              <Box
+                sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)'
+                }}
+              >
+                <DashboardIcon sx={{ fontSize: 28, color: 'white' }} />
+              </Box>
+              <Box>
+                <Typography 
+                  variant="h4"
+                  sx={{
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                  }}
+                >
+                  {t('pageTitles.adminDashboard')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {t('adminDashboard.systemMonitoring') || 'System Monitoring & Analytics'}
+                </Typography>
+              </Box>
+            </Box>
+            <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+              <FormControl 
+                size="small"
+                sx={{ 
+                  minWidth: 150,
+                  '& .MuiOutlinedInput-root': {
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: 2,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      background: 'rgba(255, 255, 255, 1)',
+                      boxShadow: '0 2px 8px rgba(102, 126, 234, 0.15)'
+                    },
+                    '&.Mui-focused': {
+                      background: 'rgba(255, 255, 255, 1)',
+                      boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)'
+                    }
+                  }
+                }}
+              >
+                <InputLabel>{t('adminDashboard.timeRange')}</InputLabel>
+                <Select 
+                  value={timeRange} 
+                  onChange={(e) => setTimeRange(e.target.value)} 
+                  label={t('adminDashboard.timeRange')}
+                >
+                  <MenuItem value={1}>{t('adminDashboard.lastHour')}</MenuItem>
+                  <MenuItem value={24}>{t('adminDashboard.last24Hours')}</MenuItem>
+                  <MenuItem value={168}>{t('adminDashboard.lastWeek')}</MenuItem>
+                  <MenuItem value={720}>{t('adminDashboard.lastMonth')}</MenuItem>
+                </Select>
+              </FormControl>
+              <Button
+                variant="contained"
+                startIcon={<RefreshIcon />}
+                onClick={() => { fetchMonitoringData(); fetchHealthData(); }}
+                disabled={loading}
+                sx={{
+                  borderRadius: 2,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
+                {t('common.refresh')}
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => setAutoRefresh(!autoRefresh)}
+                sx={{
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  borderColor: '#667eea',
+                  color: '#667eea',
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  backdropFilter: 'blur(10px)',
+                  '&:hover': {
+                    borderColor: '#764ba2',
+                    background: 'rgba(102, 126, 234, 0.1)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)'
+                  },
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                {t('adminDashboard.autoRefresh')}: {autoRefresh ? t('common.on') : t('common.off')}
+              </Button>
+            </Box>
+          </Box>
+        </Fade>
+
+        {/* System Health Summary Cards */}
+        <Grid container spacing={3} mb={3}>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title={t('adminDashboard.healthySystems')}
+              value={healthySystems}
+              icon={<CheckCircle />}
+              color="#4caf50"
+              index={0}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title={t('adminDashboard.warnings')}
+              value={warningSystems}
+              icon={<Warning />}
+              color="#ff9800"
+              index={1}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title={t('adminDashboard.critical')}
+              value={criticalSystems}
+              icon={<Error />}
+              color="#f44336"
+              index={2}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title={t('adminDashboard.offline')}
+              value={offlineSystems}
+              icon={<CloudOffIcon />}
+              color="#9e9e9e"
+              index={3}
+            />
+          </Grid>
+        </Grid>
+
+        {/* Performance Overview Cards */}
+        <Grid container spacing={3} mb={3}>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title={t('adminDashboard.totalRequests')}
+              value={overview?.totalRequests24h || 0}
+              icon={<Api />}
+              color="#1976d2"
+              subtitle={t('adminDashboard.last24h')}
+              index={4}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title={t('adminDashboard.errorRate')}
+              value={`${(overview?.errorRate || 0).toFixed(2)}%`}
+              icon={<Error />}
+              color="#f44336"
+              subtitle={`${overview?.totalErrors24h || 0} ${t('adminDashboard.errors')}`}
+              index={5}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title={t('adminDashboard.avgResponseTime')}
+              value={`${(overview?.avgResponseTime || 0).toFixed(0)}ms`}
+              icon={<Speed />}
+              color="#4caf50"
+              subtitle={t('adminDashboard.average')}
+              index={6}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title={t('adminDashboard.memoryUsage')}
+              value={`${(overview?.memoryUsagePercent || 0).toFixed(1)}%`}
+              icon={<Memory />}
+              color="#ff9800"
+              subtitle={`${overview?.memoryUsed || 0}MB / ${overview?.memoryMax || 0}MB`}
+              index={7}
+            />
+          </Grid>
+        </Grid>
+
+        {/* Tabs */}
+        <Paper
+          sx={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            overflow: 'hidden',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+              transform: 'translateY(-2px)'
+            }
+          }}
+        >
+          <Tabs 
+            value={tab} 
+            onChange={(e, v) => setTab(String(v))} 
+            variant="scrollable"
+            sx={{
+              '& .MuiTab-root': {
+                textTransform: 'none',
+                fontWeight: 600,
+                minHeight: 64
+              },
+              '& .Mui-selected': {
+                color: '#667eea'
+              },
+              '& .MuiTabs-indicator': {
+                background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                height: 3
+              }
+            }}
           >
-            {t('adminDashboard.autoRefresh')}: {autoRefresh ? t('common.on') : t('common.off')}
-          </Button>
-          <IconButton onClick={() => { fetchMonitoringData(); fetchHealthData(); }}>
-            <RefreshIcon />
-          </IconButton>
-        </Box>
-      </Box>
+            <Tab value="0" label={t('adminDashboard.systemHealth') || 'System Health'} />
+            <Tab value="1" label={t('adminDashboard.apiLogs') || 'API Logs'} />
+            <Tab value="2" label={t('adminDashboard.errors') || 'Errors'} />
+            <Tab value="3" label={t('adminDashboard.performance') || 'Performance'} />
+            <Tab value="4" label={t('adminDashboard.topEndpoints') || 'Top Endpoints'} />
+            <Tab value="5" label={t('adminDashboard.systemMetrics') || 'System Metrics'} />
+          </Tabs>
 
-      {/* System Health Summary Cards */}
-      <Grid container spacing={3} mb={3}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>{t('adminDashboard.healthySystems')}</Typography>
-                  <Typography variant="h4" color="success.main">{healthySystems}</Typography>
-                </Box>
-                <CheckCircle sx={{ fontSize: 48, color: 'success.main' }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>{t('adminDashboard.warnings')}</Typography>
-                  <Typography variant="h4" color="warning.main">{warningSystems}</Typography>
-                </Box>
-                <Warning sx={{ fontSize: 48, color: 'warning.main' }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>{t('adminDashboard.critical')}</Typography>
-                  <Typography variant="h4" color="error.main">{criticalSystems}</Typography>
-                </Box>
-                <Error sx={{ fontSize: 48, color: 'error.main' }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>{t('adminDashboard.offline')}</Typography>
-                  <Typography variant="h4" color="text.secondary">{offlineSystems}</Typography>
-                </Box>
-                <CloudOffIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Performance Overview Cards */}
-      <Grid container spacing={3} mb={3}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>{t('adminDashboard.totalRequests')}</Typography>
-                  <Typography variant="h4">{overview?.totalRequests24h || 0}</Typography>
-                  <Typography variant="caption" color="textSecondary">{t('adminDashboard.last24h')}</Typography>
-                </Box>
-                <Api sx={{ fontSize: 48, color: 'primary.main' }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>{t('adminDashboard.errorRate')}</Typography>
-                  <Typography variant="h4">{(overview?.errorRate || 0).toFixed(2)}%</Typography>
-                  <Typography variant="caption" color="error">{overview?.totalErrors24h || 0} {t('adminDashboard.errors')}</Typography>
-                </Box>
-                <Error sx={{ fontSize: 48, color: 'error.main' }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>{t('adminDashboard.avgResponseTime')}</Typography>
-                  <Typography variant="h4">{(overview?.avgResponseTime || 0).toFixed(0)}ms</Typography>
-                  <Typography variant="caption" color="textSecondary">{t('adminDashboard.average')}</Typography>
-                </Box>
-                <Speed sx={{ fontSize: 48, color: 'success.main' }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>{t('adminDashboard.memoryUsage')}</Typography>
-                  <Typography variant="h4">{(overview?.memoryUsagePercent || 0).toFixed(1)}%</Typography>
-                  <Typography variant="caption" color="textSecondary">
-                    {overview?.memoryUsed}MB / {overview?.memoryMax}MB
-                  </Typography>
-                </Box>
-                <Memory sx={{ fontSize: 48, color: 'warning.main' }} />
-              </Box>
-              <LinearProgress 
-                variant="determinate" 
-                value={overview?.memoryUsagePercent || 0} 
-                sx={{ mt: 1 }}
-                color={overview?.memoryUsagePercent > 85 ? 'error' : 'primary'}
-              />
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Tabs */}
-      <Paper>
-        <Tabs value={tab} onChange={(e, v) => setTab(v)} variant="scrollable">
-          <Tab label={t('adminDashboard.systemHealth')} />
-          <Tab label={t('adminDashboard.apiLogs')} />
-          <Tab label={t('adminDashboard.errors')} />
-          <Tab label={t('adminDashboard.performance')} />
-          <Tab label={t('adminDashboard.topEndpoints')} />
-          <Tab label={t('adminDashboard.systemMetrics')} />
-        </Tabs>
-
-        <Box p={3}>
+          <Zoom in timeout={1400}>
+            <Box p={3}>
           {/* System Health Tab */}
-          {tab === 0 && (
+          {tab === '0' && (
             <TableContainer>
               <Table size="small">
                 <TableHead>
@@ -425,7 +611,7 @@ const AdminDashboard = () => {
           )}
 
           {/* API Logs Tab */}
-          {tab === 1 && (
+          {tab === '1' && (
             <TableContainer>
               <Table size="small">
                 <TableHead>
@@ -467,7 +653,7 @@ const AdminDashboard = () => {
           )}
 
           {/* Errors Tab */}
-          {tab === 2 && (
+          {tab === '2' && (
             <TableContainer>
               <Table size="small">
                 <TableHead>
@@ -501,7 +687,7 @@ const AdminDashboard = () => {
           )}
 
           {/* Performance Tab */}
-          {tab === 3 && (
+          {tab === '3' && (
             <TableContainer>
               <Table size="small">
                 <TableHead>
@@ -541,7 +727,7 @@ const AdminDashboard = () => {
           )}
 
           {/* Top Endpoints Tab */}
-          {tab === 4 && (
+          {tab === '4' && (
             <TableContainer>
               <Table size="small">
                 <TableHead>
@@ -577,7 +763,7 @@ const AdminDashboard = () => {
           )}
 
           {/* System Metrics Tab */}
-          {tab === 5 && (
+          {tab === '5' && (
             <Grid container spacing={2}>
               {metrics.length === 0 ? (
                 <Grid item xs={12}>
@@ -600,9 +786,11 @@ const AdminDashboard = () => {
                 ))
               )}
             </Grid>
-          )}
-        </Box>
-      </Paper>
+            )}
+            </Box>
+          </Zoom>
+        </Paper>
+      </Box>
     </Box>
   )
 }

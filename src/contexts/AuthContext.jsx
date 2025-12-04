@@ -115,10 +115,9 @@ export const AuthProvider = ({ children }) => {
 
   const switchCompany = (companyId) => {
     if (user?.role === 'ADMIN') {
-      setSelectedCompanyId(companyId)
-      localStorage.setItem('selectedCompanyId', companyId.toString())
-      // Update company state
       if (companyId) {
+        setSelectedCompanyId(companyId)
+        localStorage.setItem('selectedCompanyId', companyId.toString())
         // Fetch company details
         api.get(`/companies/${companyId}`)
           .then(response => {
@@ -132,6 +131,11 @@ export const AuthProvider = ({ children }) => {
           .catch(error => {
             console.error('Failed to fetch company details:', error)
           })
+      } else {
+        // Clear selected company
+        setSelectedCompanyId(null)
+        localStorage.removeItem('selectedCompanyId')
+        setCompany(null)
       }
     }
   }

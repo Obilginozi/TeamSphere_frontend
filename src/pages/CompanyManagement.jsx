@@ -374,27 +374,66 @@ const CompanyManagement = () => {
   )
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box
+      sx={{
+        minHeight: 'calc(100vh - 64px)',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        position: 'relative',
+        margin: -3,
+        padding: 3,
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }
+      }}
+    >
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Box>
-          <Typography variant="h4" gutterBottom sx={{ fontWeight: 600 }}>
-            Company Management
+            <Typography 
+              variant="h4" 
+              gutterBottom 
+              sx={{
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}
+            >
+            {t('pageTitles.companyManagement')}
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Manage companies, subscriptions, and departments
+            {t('companyManagement.manageCompaniesSubscriptions')}
           </Typography>
         </Box>
         <Button
           variant="contained"
           startIcon={<Add />}
           onClick={() => navigate('/company-setup')}
-          sx={{ minWidth: 160 }}
+            sx={{ 
+              minWidth: 160,
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                transform: 'translateY(-2px)'
+              }
+            }}
         >
           {t('company.createCompany') || 'Create Company'}
         </Button>
       </Box>
 
-      <Paper sx={{ mb: 3 }}>
         <Tabs
           value={activeTab}
           onChange={(e, newValue) => {
@@ -408,21 +447,45 @@ const CompanyManagement = () => {
           }}
           indicatorColor="primary"
           textColor="primary"
+            sx={{
+              '& .MuiTab-root': {
+                borderRadius: 2,
+                mx: 0.5,
+                '&.Mui-selected': {
+                  background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
+                  color: '#667eea',
+                  fontWeight: 600
+                }
+              },
+              '& .MuiTabs-indicator': {
+                background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                height: 3,
+                borderRadius: '3px 3px 0 0'
+              }
+            }}
         >
-          <Tab label="Companies" icon={<BusinessIcon />} iconPosition="start" />
-          <Tab label="Departments" icon={<PeopleIcon />} iconPosition="start" />
-          <Tab label="HR Users" icon={<PeopleIcon />} iconPosition="start" />
+          <Tab label={t('companyManagement.companies')} icon={<BusinessIcon />} iconPosition="start" />
+          <Tab label={t('companyManagement.departments')} icon={<PeopleIcon />} iconPosition="start" />
+          <Tab label={t('companyManagement.hrUsers')} icon={<PeopleIcon />} iconPosition="start" />
         </Tabs>
-      </Paper>
 
       {activeTab === 0 && (
         <Box>
           {/* Search Bar */}
-          <Card sx={{ mb: 3 }}>
+          <Card 
+            sx={{ 
+              mb: 3,
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 3,
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            }}
+          >
             <CardContent>
               <TextField
                 fullWidth
-                placeholder={t('company.searchCompanies') || 'Search companies by name, email, or domain...'}
+                placeholder={t('companyManagement.searchCompanies')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyPress={(e) => {
@@ -449,16 +512,26 @@ const CompanyManagement = () => {
           </Card>
 
           {/* Companies Table */}
-          <TableContainer component={Paper} variant="outlined">
+          <TableContainer 
+            component={Paper} 
+            variant="outlined"
+            sx={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 3,
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            }}
+          >
             <Table>
               <TableHead>
-                <TableRow sx={{ bgcolor: 'grey.50' }}>
-                  <TableCell sx={{ fontWeight: 600 }}>Company</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Contact</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Subscription</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="center">Employees</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="center">Status</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
+                  <TableRow sx={{ background: 'rgba(102, 126, 234, 0.05)' }}>
+                  <TableCell sx={{ fontWeight: 700 }}>{t('companyManagement.company')}</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>{t('companyManagement.contact')}</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>{t('companyManagement.subscription')}</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }} align="center">{t('companyManagement.employees')}</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }} align="center">{t('companyManagement.status')}</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }} align="right">{t('companyManagement.actions')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -610,6 +683,20 @@ const CompanyManagement = () => {
                 setShowDeptForm(true)
               }}
               disabled={!selectedCompanyForDept}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                },
+                '&:disabled': {
+                  background: 'rgba(0, 0, 0, 0.12)',
+                  color: 'rgba(0, 0, 0, 0.26)'
+                }
+              }}
             >
               Add Department
             </Button>
@@ -647,6 +734,16 @@ const CompanyManagement = () => {
                           onClick={() => {
                             setEditingDepartment(null)
                             setShowDeptForm(true)
+                          }}
+                          sx={{
+                            borderRadius: 2,
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                            '&:hover': {
+                              background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                              boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                              transform: 'translateY(-2px)'
+                            }
                           }}
                         >
                           Add Department
@@ -741,6 +838,20 @@ const CompanyManagement = () => {
                 setShowHRForm(true)
               }}
               disabled={!selectedCompanyForHR}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                },
+                '&:disabled': {
+                  background: 'rgba(0, 0, 0, 0.12)',
+                  color: 'rgba(0, 0, 0, 0.26)'
+                }
+              }}
             >
               Add HR User
             </Button>
@@ -791,6 +902,16 @@ const CompanyManagement = () => {
                           onClick={() => {
                             setEditingHRUser(null)
                             setShowHRForm(true)
+                          }}
+                          sx={{
+                            borderRadius: 2,
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                            '&:hover': {
+                              background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                              boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                              transform: 'translateY(-2px)'
+                            }
                           }}
                         >
                           Add HR User
@@ -891,6 +1012,7 @@ const CompanyManagement = () => {
           }}
         />
       )}
+      </Box>
     </Box>
   )
 }
@@ -925,10 +1047,48 @@ const DepartmentForm = ({ department, companyId, onSave, onClose }) => {
   }
 
   return (
-    <Dialog open={true} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog 
+      open={true} 
+      onClose={onClose} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: 3,
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+            opacity: 0.8
+          }
+        }
+      }}
+    >
       <FormProvider {...methods}>
         <Box component="form" onSubmit={methods.handleSubmit(onSubmit)}>
-          <DialogTitle>
+          <DialogTitle
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              fontWeight: 700,
+              fontSize: '1.5rem',
+              pb: 2
+            }}
+          >
             {department ? 'Edit Department' : 'Add Department'}
           </DialogTitle>
           <DialogContent>
@@ -973,9 +1133,27 @@ const DepartmentForm = ({ department, companyId, onSave, onClose }) => {
               </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={onClose}>{t('common.cancel') || 'Cancel'}</Button>
-            <Button type="submit" variant="contained">
+          <DialogActions sx={{ p: 2.5, pt: 1 }}>
+            <Button 
+              onClick={onClose}
+              sx={{ borderRadius: 2 }}
+            >
+              {t('common.cancel') || 'Cancel'}
+            </Button>
+            <Button 
+              type="submit" 
+              variant="contained"
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+            >
               {department ? (t('common.save') || 'Save') : (t('common.add') || 'Add')}
             </Button>
           </DialogActions>
@@ -1053,10 +1231,48 @@ const CompanyForm = ({ company, onSave, onClose }) => {
   ]
 
   return (
-    <Dialog open={true} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog 
+      open={true} 
+      onClose={onClose} 
+      maxWidth="md" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: 3,
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+            opacity: 0.8
+          }
+        }
+      }}
+    >
       <FormProvider {...methods}>
         <Box component="form" onSubmit={methods.handleSubmit(onSubmit)}>
-          <DialogTitle>
+          <DialogTitle
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              fontWeight: 700,
+              fontSize: '1.5rem',
+              pb: 2
+            }}
+          >
             {company ? (t('company.editCompany') || 'Edit Company') : (t('company.createCompany') || 'Create Company')}
           </DialogTitle>
           <DialogContent>
@@ -1193,9 +1409,27 @@ const CompanyForm = ({ company, onSave, onClose }) => {
               </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={onClose}>{t('common.cancel') || 'Cancel'}</Button>
-            <Button type="submit" variant="contained">
+          <DialogActions sx={{ p: 2.5, pt: 1 }}>
+            <Button 
+              onClick={onClose}
+              sx={{ borderRadius: 2 }}
+            >
+              {t('common.cancel') || 'Cancel'}
+            </Button>
+            <Button 
+              type="submit" 
+              variant="contained"
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+            >
               {company ? (t('common.save') || 'Save') : (t('common.add') || 'Add')}
             </Button>
           </DialogActions>
@@ -1257,10 +1491,48 @@ const HRUserForm = ({ hrUser, companyId, onSave, onClose }) => {
   }
 
   return (
-    <Dialog open={true} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog 
+      open={true} 
+      onClose={onClose} 
+      maxWidth="md" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: 3,
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+            opacity: 0.8
+          }
+        }
+      }}
+    >
       <FormProvider {...methods}>
         <Box component="form" onSubmit={methods.handleSubmit(onSubmit)}>
-          <DialogTitle>
+          <DialogTitle
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              fontWeight: 700,
+              fontSize: '1.5rem',
+              pb: 2
+            }}
+          >
             {hrUser ? 'Edit HR User' : 'Add HR User'}
           </DialogTitle>
           <DialogContent>
@@ -1392,9 +1664,27 @@ const HRUserForm = ({ hrUser, companyId, onSave, onClose }) => {
               </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={onClose}>{t('common.cancel') || 'Cancel'}</Button>
-            <Button type="submit" variant="contained">
+          <DialogActions sx={{ p: 2.5, pt: 1 }}>
+            <Button 
+              onClick={onClose}
+              sx={{ borderRadius: 2 }}
+            >
+              {t('common.cancel') || 'Cancel'}
+            </Button>
+            <Button 
+              type="submit" 
+              variant="contained"
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+            >
               {hrUser ? (t('common.save') || 'Save') : (t('common.add') || 'Add')}
             </Button>
           </DialogActions>

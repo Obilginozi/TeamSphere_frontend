@@ -23,7 +23,11 @@ import {
   Snackbar,
   InputAdornment,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material'
 import {
   Edit,
@@ -32,20 +36,24 @@ import {
   Search,
   FilterList,
   Download,
-  Add
+  Add,
+  AccessTime
 } from '@mui/icons-material'
 import api from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import { getErrorMessage, logSuccessDetails } from '../utils/errorHandler'
 import { Autocomplete } from '@mui/material'
+import { useTranslation } from 'react-i18next'
 
 const AttendanceManagement = () => {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [records, setRecords] = useState([])
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [totalElements, setTotalElements] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('ALL')
   const [editDialog, setEditDialog] = useState(false)
   const [deleteDialog, setDeleteDialog] = useState(false)
   const [addDialog, setAddDialog] = useState(false)
@@ -67,7 +75,7 @@ const AttendanceManagement = () => {
 
   useEffect(() => {
     fetchRecords()
-  }, [page, rowsPerPage, searchTerm, showDeleted])
+  }, [page, rowsPerPage, searchTerm, showDeleted, statusFilter])
 
   // Update current time every minute to refresh duration for active shifts
   useEffect(() => {
@@ -111,38 +119,68 @@ const AttendanceManagement = () => {
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
-      showSnackbar('Attendance exported successfully', 'success')
+      showSnackbar(t('attendance.exportedSuccessfully'), 'success')
     } catch (error) {
       console.error('Error exporting attendance:', error)
-      showSnackbar(getErrorMessage(error, 'Failed to export attendance'), 'error')
+      showSnackbar(getErrorMessage(error, t('attendance.failedToExport'), '', t), 'error')
     }
   }
 
   const fetchRecords = async () => {
     try {
       const params = {
-        page,
-        size: rowsPerPage,
+        page: 0, // Get all records for filtering
+        size: 10000, // Large size to get all records
         search: searchTerm || undefined,
         includeDeleted: showDeleted || undefined
       }
       const response = await api.get('/time-logs', { params })
-      console.log('Attendance API response:', response.data)
       if (response.data && response.data.success && response.data.data) {
-        const content = response.data.data.content || []
-        console.log('Setting records:', content.length, 'records')
-        setRecords(content)
-        setTotalElements(response.data.data.totalElements || 0)
+        let content = response.data.data.content || []
+        
+        // Filter by status on frontend
+        if (statusFilter !== 'ALL') {
+          content = content.filter(record => {
+            if (statusFilter === 'DELETED') {
+              return record.isDeleted
+            }
+            if (record.isDeleted) return false
+            
+            const isStillWorking = record.checkInTime && !record.checkOutTime
+            let durationHours = null
+            if (record.totalWorkingHours !== null && record.totalWorkingHours !== undefined) {
+              durationHours = record.totalWorkingHours
+            } else {
+              durationHours = calculateDurationFromParts(record.logDate, record.checkInTime, record.checkOutTime)
+            }
+            
+            if (statusFilter === 'IN_PROGRESS') {
+              return isStillWorking
+            }
+            if (statusFilter === 'COMPLETED') {
+              return !isStillWorking && durationHours !== null && durationHours <= 8
+            }
+            if (statusFilter === 'OVERTIME') {
+              return !isStillWorking && durationHours !== null && durationHours > 8
+            }
+            return true
+          })
+        }
+        
+        // Apply pagination
+        const startIndex = page * rowsPerPage
+        const endIndex = startIndex + rowsPerPage
+        const paginatedContent = content.slice(startIndex, endIndex)
+        
+        setRecords(paginatedContent)
+        setTotalElements(content.length)
       } else {
-        console.warn('Unexpected response structure:', response.data)
         setRecords([])
         setTotalElements(0)
       }
     } catch (error) {
       console.error('Error fetching attendance records:', error)
-      console.error('Error response:', error.response?.data)
-      console.error('Error status:', error.response?.status)
-      showSnackbar(getErrorMessage(error, 'Failed to load attendance records'), 'error')
+      showSnackbar(getErrorMessage(error, t('attendance.failedToLoadRecords'), '', t), 'error')
       setRecords([])
       setTotalElements(0)
     }
@@ -150,17 +188,15 @@ const AttendanceManagement = () => {
 
   const handleSoftDelete = async () => {
     try {
-      console.log('Deleting record:', selectedRecord?.id)
       const response = await api.put(`/time-logs/${selectedRecord.id}/soft-delete`)
       logSuccessDetails(response, 'Record soft deleted', { recordId: selectedRecord.id })
-      showSnackbar('Record soft deleted successfully', 'success')
+      showSnackbar(t('attendance.recordSoftDeletedSuccessfully'), 'success')
       setDeleteDialog(false)
       setSelectedRecord(null)
       fetchRecords()
     } catch (error) {
       console.error('Delete error:', error)
-      console.error('Error response:', error.response?.data)
-      showSnackbar(getErrorMessage(error, 'Failed to delete record'), 'error')
+      showSnackbar(getErrorMessage(error, t('attendance.failedToDeleteRecord'), '', t), 'error')
     }
   }
 
@@ -168,10 +204,10 @@ const AttendanceManagement = () => {
     try {
       const response = await api.put(`/time-logs/${id}/restore`)
       logSuccessDetails(response, 'Record restored', { recordId: id })
-      showSnackbar('Record restored successfully', 'success')
+      showSnackbar(t('attendance.recordRestoredSuccessfully'), 'success')
       fetchRecords()
     } catch (error) {
-      showSnackbar(getErrorMessage(error, 'Failed to restore record'), 'error')
+      showSnackbar(getErrorMessage(error, t('attendance.failedToRestoreRecord'), '', t), 'error')
     }
   }
 
@@ -201,18 +237,16 @@ const AttendanceManagement = () => {
         updateData.checkOutTime = timePart.length === 5 ? `${timePart}:00` : timePart
       }
       
-      console.log('Sending update data:', updateData)
       const response = await api.put(`/time-logs/${selectedRecord.id}`, updateData)
       logSuccessDetails(response, 'Record updated', { recordId: selectedRecord.id, updateData })
-      showSnackbar('Record updated successfully', 'success')
+      showSnackbar(t('attendance.recordUpdatedSuccessfully'), 'success')
       setEditDialog(false)
       setSelectedRecord(null)
       setEditFormData({ checkInTime: '', checkOutTime: '', stillWorking: false })
       fetchRecords()
     } catch (error) {
       console.error('Update error:', error)
-      console.error('Error response:', error.response?.data)
-      showSnackbar(getErrorMessage(error, 'Failed to update record'), 'error')
+      showSnackbar(getErrorMessage(error, t('attendance.failedToUpdateRecord'), '', t), 'error')
     }
   }
 
@@ -420,7 +454,7 @@ const AttendanceManagement = () => {
   const handleAddSubmit = async () => {
     try {
       if (!addFormData.employeeId || !addFormData.logDate || !addFormData.checkInTime) {
-        showSnackbar('Please fill in all required fields (Employee, Date, Check In Time)', 'error')
+        showSnackbar(t('attendance.pleaseFillRequiredFields'), 'error')
         return
       }
 
@@ -450,22 +484,71 @@ const AttendanceManagement = () => {
 
       const response = await api.post('/time-logs', requestData)
       logSuccessDetails(response, 'Attendance record added', requestData)
-      showSnackbar('Attendance record added successfully', 'success')
+      showSnackbar(t('attendance.recordAddedSuccessfully'), 'success')
       handleAddDialogClose()
       fetchRecords()
     } catch (error) {
       console.error('Error adding attendance record:', error)
-      showSnackbar(getErrorMessage(error, 'Failed to add attendance record'), 'error')
+      showSnackbar(getErrorMessage(error, t('attendance.failedToAddRecord'), '', t), 'error')
     }
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box
+      sx={{
+        minHeight: 'calc(100vh - 64px)',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        position: 'relative',
+        margin: -3,
+        padding: 3,
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }
+      }}
+    >
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
       {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">
-          Attendance Management
+          <Box>
+            <Box display="flex" alignItems="center" gap={2} mb={1}>
+              <Box
+                sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)'
+                }}
+              >
+                <AccessTime sx={{ fontSize: 28, color: 'white' }} />
+              </Box>
+              <Box>
+                <Typography 
+                  variant="h4"
+                  sx={{
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                  }}
+                >
+          {t('pageTitles.attendanceManagement')}
         </Typography>
+              </Box>
+            </Box>
+          </Box>
         <Box>
           <Button
             variant={showDeleted ? 'contained' : 'outlined'}
@@ -473,7 +556,7 @@ const AttendanceManagement = () => {
             startIcon={<RestoreFromTrash />}
             sx={{ mr: 2 }}
           >
-            {showDeleted ? 'Hide Deleted' : 'Show Deleted'}
+            {showDeleted ? t('attendance.hideDeleted') : t('attendance.showDeleted')}
           </Button>
           <Button 
             variant="outlined" 
@@ -481,59 +564,144 @@ const AttendanceManagement = () => {
             onClick={handleExport}
             sx={{ mr: 2 }}
           >
-            Export
+            {t('attendance.export')}
           </Button>
           {(user?.role === 'HR' || user?.role === 'ADMIN') && (
             <Button
               variant="contained"
               onClick={handleAddDialogOpen}
               startIcon={<Add />}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
             >
-              Add Manual
+              {t('attendance.addManual')}
             </Button>
           )}
         </Box>
       </Box>
 
       {/* Filters */}
-      <Paper sx={{ p: 2, mb: 2 }}>
+        <Paper 
+          sx={{ 
+            p: 2, 
+            mb: 2,
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+          }}
+        >
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} sm={6} md={4}>
             <TextField
               fullWidth
-              placeholder="Search by employee name or ID..."
+              size="small"
+              label={t('common.search')}
+              placeholder={t('attendance.searchPlaceholder') || t('common.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.95)',
+                  },
+                  '&.Mui-focused': {
+                    background: 'rgba(255, 255, 255, 1)',
+                    boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                  }
+                }
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Search />
+                    <Search sx={{ color: '#667eea' }} />
                   </InputAdornment>
                 ),
               }}
             />
           </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl 
+              fullWidth 
+              size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.95)',
+                  },
+                  '&.Mui-focused': {
+                    background: 'rgba(255, 255, 255, 1)',
+                    boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                  }
+                }
+              }}
+            >
+              <InputLabel id="attendance-status-filter-label">{t('attendance.status')}</InputLabel>
+              <Select
+                labelId="attendance-status-filter-label"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                label={t('attendance.status')}
+                renderValue={(selected) => {
+                  if (selected === 'ALL') return t('common.all')
+                  if (selected === 'COMPLETED') return t('common.status.completed')
+                  if (selected === 'IN_PROGRESS') return t('common.status.inProgress')
+                  if (selected === 'OVERTIME') return t('common.status.overtime')
+                  if (selected === 'DELETED') return t('common.status.deleted')
+                  return selected
+                }}
+              >
+                <MenuItem value="ALL">{t('common.all')}</MenuItem>
+                <MenuItem value="COMPLETED">{t('common.status.completed')}</MenuItem>
+                <MenuItem value="IN_PROGRESS">{t('common.status.inProgress')}</MenuItem>
+                <MenuItem value="OVERTIME">{t('common.status.overtime')}</MenuItem>
+                {showDeleted && <MenuItem value="DELETED">{t('common.status.deleted')}</MenuItem>}
+              </Select>
+            </FormControl>
+          </Grid>
         </Grid>
       </Paper>
 
       {/* Table */}
-      <TableContainer component={Paper}>
+        <TableContainer 
+          component={Paper}
+          sx={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+          }}
+        >
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Employee</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell>Check In</TableCell>
-              <TableCell>Check Out</TableCell>
-              <TableCell>Duration</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell><strong>{t('attendance.employee')}</strong></TableCell>
+              <TableCell><strong>{t('attendance.date')}</strong></TableCell>
+              <TableCell><strong>{t('attendance.checkIn')}</strong></TableCell>
+              <TableCell><strong>{t('attendance.checkOut')}</strong></TableCell>
+              <TableCell><strong>{t('attendance.duration')}</strong></TableCell>
+              <TableCell><strong>{t('attendance.status')}</strong></TableCell>
+              <TableCell><strong>{t('attendance.actions')}</strong></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {records.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">No records found</TableCell>
+                <TableCell colSpan={7} align="center">{t('attendance.noRecordsFound')}</TableCell>
               </TableRow>
             ) : (
               records.map((record) => (
@@ -599,7 +767,22 @@ const AttendanceManagement = () => {
                   </TableCell>
                   <TableCell>
                     {record.isDeleted ? (
-                      <Chip label="DELETED" color="error" size="small" />
+                      <Chip 
+                        label={t('common.status.deleted')} 
+                        size="small"
+                        sx={{
+                          background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)',
+                          color: 'white',
+                          fontWeight: 600,
+                          boxShadow: '0 2px 8px rgba(244, 67, 54, 0.3)',
+                          borderRadius: 2,
+                          '&:hover': {
+                            boxShadow: '0 4px 12px rgba(244, 67, 54, 0.4)',
+                            transform: 'translateY(-1px)'
+                          },
+                          transition: 'all 0.2s ease'
+                        }}
+                      />
                     ) : (() => {
                       // Check if still working
                       const isStillWorking = record.checkInTime && !record.checkOutTime
@@ -612,26 +795,56 @@ const AttendanceManagement = () => {
                         durationHours = calculateDurationFromParts(record.logDate, record.checkInTime, record.checkOutTime)
                       }
                       
-                      // Determine status and color
-                      let statusLabel = record.status || (record.checkOutTime ? 'COMPLETED' : 'IN_PROGRESS')
-                      let chipColor = 'default'
+                      // Determine status and styling
+                      let statusLabel = record.status || (record.checkOutTime ? t('common.status.completed') : t('common.status.inProgress'))
+                      let chipStyles = {}
                       
                       if (isStillWorking) {
-                        statusLabel = 'IN_PROGRESS'
-                        chipColor = 'primary' // Blue
+                        statusLabel = t('common.status.inProgress')
+                        chipStyles = {
+                          background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+                          color: 'white',
+                          fontWeight: 600,
+                          boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)',
+                        }
                       } else if (durationHours !== null && durationHours > 8) {
-                        statusLabel = 'OVERTIME'
-                        chipColor = 'error' // Red
+                        statusLabel = t('common.status.overtime')
+                        chipStyles = {
+                          background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+                          color: 'white',
+                          fontWeight: 600,
+                          boxShadow: '0 2px 8px rgba(255, 152, 0, 0.3)',
+                        }
                       } else if (durationHours !== null && durationHours <= 8) {
-                        statusLabel = 'COMPLETED'
-                        chipColor = 'success' // Green
+                        statusLabel = t('common.status.completed')
+                        chipStyles = {
+                          background: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)',
+                          color: 'white',
+                          fontWeight: 600,
+                          boxShadow: '0 2px 8px rgba(76, 175, 80, 0.3)',
+                        }
+                      } else {
+                        chipStyles = {
+                          background: 'rgba(158, 158, 158, 0.2)',
+                          color: '#424242',
+                          fontWeight: 500,
+                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                        }
                       }
                       
                       return (
                         <Chip 
                           label={statusLabel} 
-                          color={chipColor}
                           size="small"
+                          sx={{
+                            ...chipStyles,
+                            borderRadius: 2,
+                            '&:hover': {
+                              boxShadow: chipStyles.boxShadow ? chipStyles.boxShadow.replace('0 2px', '0 4px').replace('0.3', '0.4') : '0 4px 8px rgba(0, 0, 0, 0.15)',
+                              transform: 'translateY(-1px)'
+                            },
+                            transition: 'all 0.2s ease'
+                          }}
                         />
                       )
                     })()}
@@ -686,12 +899,50 @@ const AttendanceManagement = () => {
       </TableContainer>
 
       {/* Edit Dialog */}
-      <Dialog open={editDialog} onClose={handleEditDialogClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit Attendance Record</DialogTitle>
+      <Dialog 
+        open={editDialog} 
+        onClose={handleEditDialogClose} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+              opacity: 0.8
+            }
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            pb: 2
+          }}
+        >
+          {t('attendance.editAttendanceRecord')}
+        </DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
-            label="Check In Time"
+            label={t('attendance.checkInTime')}
             type="datetime-local"
             value={editFormData.checkInTime}
             onChange={(e) => setEditFormData({ ...editFormData, checkInTime: e.target.value })}
@@ -713,49 +964,157 @@ const AttendanceManagement = () => {
                 }}
               />
             }
-            label="Still Working (No Clock Out Time)"
+            label={t('attendance.stillWorking')}
             sx={{ mt: 1, mb: 1 }}
           />
           <TextField
             fullWidth
-            label="Check Out Time"
+            label={t('attendance.checkOutTime')}
             type="datetime-local"
             value={editFormData.checkOutTime}
             onChange={(e) => setEditFormData({ ...editFormData, checkOutTime: e.target.value })}
             margin="normal"
             disabled={editFormData.stillWorking}
             InputLabelProps={{ shrink: true }}
-            helperText={editFormData.stillWorking ? "Check-out time is not required when employee is still working" : "Leave empty if employee is still working"}
+            helperText={editFormData.stillWorking ? t('attendance.checkOutTimeNotRequired') : t('attendance.checkOutTimeOptional')}
           />
           <Alert severity="warning" sx={{ mt: 2 }}>
-            Changes will be logged in audit trail
+            {t('attendance.changesLogged')}
           </Alert>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleEditDialogClose}>Cancel</Button>
-          <Button variant="contained" onClick={handleUpdate}>
-            Save Changes
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button 
+            onClick={handleEditDialogClose}
+            sx={{ borderRadius: 2 }}
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={handleUpdate}
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
+            {t('common.save')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation */}
-      <Dialog open={deleteDialog} onClose={() => setDeleteDialog(false)}>
-        <DialogTitle>Soft Delete Record</DialogTitle>
+      <Dialog 
+        open={deleteDialog} 
+        onClose={() => setDeleteDialog(false)}
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #f44336 0%, #d32f2f 100%)',
+              opacity: 0.8
+            }
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            color: '#f44336',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            pb: 2
+          }}
+        >
+          {t('attendance.deleteAttendanceRecord')}
+        </DialogTitle>
         <DialogContent>
-          Are you sure you want to soft delete this attendance record? It can be restored later.
+          {t('attendance.confirmDelete')}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialog(false)}>Cancel</Button>
-          <Button onClick={handleSoftDelete} color="error" variant="contained">
-            Soft Delete
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button 
+            onClick={() => setDeleteDialog(false)}
+            sx={{ borderRadius: 2 }}
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button 
+            onClick={handleSoftDelete} 
+            color="error" 
+            variant="contained"
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)',
+              boxShadow: '0 4px 16px rgba(244, 67, 54, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #d32f2f 0%, #f44336 100%)',
+                boxShadow: '0 6px 20px rgba(244, 67, 54, 0.4)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
+            {t('common.delete')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Add Manual Attendance Dialog */}
-      <Dialog open={addDialog} onClose={handleAddDialogClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Manual Attendance</DialogTitle>
+      <Dialog 
+        open={addDialog} 
+        onClose={handleAddDialogClose} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+              opacity: 0.8
+            }
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            pb: 2
+          }}
+        >
+          {t('attendance.addAttendanceRecord')}
+        </DialogTitle>
         <DialogContent>
           <Autocomplete
             options={employees}
@@ -768,16 +1127,16 @@ const AttendanceManagement = () => {
             renderInput={(params) => (
               <TextField
                 {...params}
-                label="Employee"
+                label={t('attendance.selectEmployee')}
                 margin="normal"
                 required
-                helperText="Select an employee"
+                helperText={t('attendance.selectEmployeeHelper')}
               />
             )}
           />
           <TextField
             fullWidth
-            label="Date"
+            label={t('attendance.logDate')}
             type="date"
             value={addFormData.logDate}
             onChange={(e) => setAddFormData({ ...addFormData, logDate: e.target.value })}
@@ -787,7 +1146,7 @@ const AttendanceManagement = () => {
           />
           <TextField
             fullWidth
-            label="Check In Time"
+            label={t('attendance.checkInTime')}
             type="time"
             value={addFormData.checkInTime}
             onChange={(e) => setAddFormData({ ...addFormData, checkInTime: e.target.value })}
@@ -810,12 +1169,12 @@ const AttendanceManagement = () => {
                 }}
               />
             }
-            label="Still Working (No Clock Out Time)"
+            label={t('attendance.stillWorking')}
             sx={{ mt: 1, mb: 1 }}
           />
           <TextField
             fullWidth
-            label="Check Out Time"
+            label={t('attendance.checkOutTime')}
             type="time"
             value={addFormData.checkOutTime}
             onChange={(e) => setAddFormData({ ...addFormData, checkOutTime: e.target.value })}
@@ -823,27 +1182,45 @@ const AttendanceManagement = () => {
             disabled={addFormData.stillWorking}
             InputLabelProps={{ shrink: true }}
             inputProps={{ step: 60 }}
-            helperText={addFormData.stillWorking ? "Check-out time is not required when employee is still working" : "Optional - leave empty if employee is still working"}
+            helperText={addFormData.stillWorking ? t('attendance.checkOutTimeNotRequired') : t('attendance.checkOutTimeOptional')}
           />
           <TextField
             fullWidth
-            label="Notes"
+            label={t('attendance.notes')}
             multiline
             rows={3}
             value={addFormData.notes}
             onChange={(e) => setAddFormData({ ...addFormData, notes: e.target.value })}
             margin="normal"
             InputLabelProps={{ shrink: true }}
-            helperText="Optional notes about this attendance record"
+            helperText={t('attendance.notesHelper')}
           />
           <Alert severity="info" sx={{ mt: 2 }}>
-            This will create a manual attendance record. The record will be marked with scan method "MANUAL".
+            {t('attendance.manualRecordInfo')}
           </Alert>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleAddDialogClose}>Cancel</Button>
-          <Button variant="contained" onClick={handleAddSubmit}>
-            Add Record
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button 
+            onClick={handleAddDialogClose}
+            sx={{ borderRadius: 2 }}
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={handleAddSubmit}
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
+            {t('attendance.addRecord')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -858,6 +1235,7 @@ const AttendanceManagement = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      </Box>
     </Box>
   )
 }

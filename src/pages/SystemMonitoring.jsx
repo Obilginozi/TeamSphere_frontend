@@ -118,10 +118,10 @@ const SystemMonitoring = () => {
   const offlineSystems = healthData.filter(h => h.healthStatus === 'OFFLINE').length
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" gutterBottom>
-          System Health Monitoring
+          {t('pageTitles.systemMonitoring')}
         </Typography>
         <Box>
           <Button

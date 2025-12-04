@@ -54,7 +54,7 @@ const ReportsAnalytics = () => {
       setReportData(response.data.data)
     } catch (err) {
       console.error('Failed to fetch report data:', err)
-      setError('Failed to load report data. Please try again.')
+      setError(t('reportsAnalytics.failedToLoadReportData'))
     } finally {
       setLoading(false)
     }
@@ -74,7 +74,7 @@ const ReportsAnalytics = () => {
       link.click()
       link.remove()
     } catch (err) {
-      setError('Failed to export report. Please try again.')
+      setError(t('reportsAnalytics.failedToExportReport'))
     }
   }
 
@@ -96,7 +96,7 @@ const ReportsAnalytics = () => {
       <Box mb={4} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
         <Box>
           <Typography variant="h4" gutterBottom>
-            Reports & Analytics
+            {t('pageTitles.reportsAnalytics')}
           </Typography>
           <Typography variant="body2" color="textSecondary">
             Generate comprehensive reports and insights

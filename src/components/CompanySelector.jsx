@@ -72,6 +72,16 @@ const CompanySelector = () => {
     setSuccess(false)
   }
 
+  const handleUnselectCompany = () => {
+    setSelectedCompany(null)
+    setSuccess(false)
+    // Clear selected company in context
+    if (user?.role === 'ADMIN') {
+      switchCompany(null)
+      localStorage.removeItem('selectedCompanyId')
+    }
+  }
+
   const handleSwitchCompany = async () => {
     if (!selectedCompany) return
     
@@ -116,9 +126,39 @@ const CompanySelector = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box
+      sx={{
+        minHeight: 'calc(100vh - 64px)',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        position: 'relative',
+        margin: -3,
+        padding: 3,
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }
+      }}
+    >
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom sx={{ fontWeight: 600, color: 'text.primary' }}>
+          <Typography 
+            variant="h4" 
+            gutterBottom 
+            sx={{ 
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text'
+            }}
+          >
           Switch Company
         </Typography>
         <Typography variant="body1" color="text.secondary">
@@ -157,6 +197,22 @@ const CompanySelector = () => {
           onClick={fetchCompanies}
           variant="outlined"
           size="small"
+          sx={{
+            borderRadius: 2,
+            borderColor: '#667eea',
+            color: '#667eea',
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)',
+            textTransform: 'none',
+            fontWeight: 600,
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              borderColor: '#764ba2',
+              background: 'rgba(102, 126, 234, 0.1)',
+              transform: 'translateY(-2px)',
+              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)'
+            }
+          }}
         >
           Refresh
         </Button>
@@ -192,16 +248,36 @@ const CompanySelector = () => {
                     cursor: 'pointer',
                     transition: 'all 0.3s ease',
                     border: isSelected ? 2 : 1,
-                    borderColor: isSelected ? 'primary.main' : 'divider',
-                    boxShadow: isSelected ? 4 : 1,
-                    '&:hover': {
-                      boxShadow: 4,
-                      transform: 'translateY(-4px)',
-                      borderColor: 'primary.main'
-                    },
+                    borderColor: isSelected ? '#667eea' : 'rgba(255, 255, 255, 0.3)',
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(20px)',
+                    borderRadius: 3,
+                    boxShadow: isSelected ? '0 12px 40px rgba(102, 126, 234, 0.3)' : '0 8px 32px rgba(0, 0, 0, 0.1)',
                     position: 'relative',
+                    overflow: 'hidden',
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: '4px',
+                      background: isSelected 
+                        ? 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)'
+                        : 'transparent',
+                      opacity: 0.8,
+                      transition: 'all 0.3s ease'
+                    },
+                    '&:hover': {
+                      boxShadow: '0 12px 40px rgba(102, 126, 234, 0.3)',
+                      transform: 'translateY(-4px)',
+                      borderColor: '#667eea',
+                      '&::before': {
+                        background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)'
+                      }
+                    },
                     ...(isCurrentCompany && {
-                      background: 'linear-gradient(135deg, rgba(25, 118, 210, 0.05) 0%, rgba(25, 118, 210, 0.02) 100%)'
+                      background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.05) 100%)'
                     })
                   }}
                   onClick={() => handleCompanySelect(company)}
@@ -342,7 +418,21 @@ const CompanySelector = () => {
                           handleSwitchCompany()
                         }}
                         disabled={switching || isCurrentCompany}
-                        sx={{ py: 1.5 }}
+                        sx={{ 
+                          py: 1.5,
+                          borderRadius: 2,
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                          '&:hover': {
+                            background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                            boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                            transform: 'translateY(-2px)'
+                          },
+                          '&:disabled': {
+                            background: 'rgba(0, 0, 0, 0.12)',
+                            color: 'rgba(0, 0, 0, 0.26)'
+                          }
+                        }}
                       >
                         {switching ? 'Switching...' : isCurrentCompany ? 'Current Company' : `Switch to ${company.name}`}
                       </Button>
@@ -357,7 +447,25 @@ const CompanySelector = () => {
 
       {selectedCompany && !success && user?.role === 'ADMIN' && (
         <Box sx={{ mt: 4 }}>
-          <Card sx={{ bgcolor: 'primary.50', border: '1px solid', borderColor: 'primary.200' }}>
+          <Card sx={{ 
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(102, 126, 234, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+              opacity: 0.8
+            }
+          }}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
@@ -368,22 +476,62 @@ const CompanySelector = () => {
                     {selectedCompany.currentEmployeeCount} employees • {selectedCompany.subscriptionPlan?.replace(/_/g, ' ') || 'N/A'} plan
                   </Typography>
                 </Box>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  size="large"
-                  startIcon={switching ? <CircularProgress size={20} color="inherit" /> : <CheckCircleIcon />}
-                  onClick={handleSwitchCompany}
-                  disabled={switching || selectedCompanyId === selectedCompany.id}
-                  sx={{ minWidth: 200 }}
-                >
-                  {switching ? 'Switching...' : selectedCompanyId === selectedCompany.id ? 'Current Company' : 'Switch Now'}
-                </Button>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button
+                    variant="outlined"
+                    color="secondary"
+                    size="large"
+                    onClick={handleUnselectCompany}
+                    sx={{ 
+                      minWidth: 150,
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      borderColor: '#667eea',
+                      color: '#667eea',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        borderColor: '#764ba2',
+                        background: 'rgba(102, 126, 234, 0.1)',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)'
+                      }
+                    }}
+                  >
+                    Unselect
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="large"
+                    startIcon={switching ? <CircularProgress size={20} color="inherit" /> : <CheckCircleIcon />}
+                    onClick={handleSwitchCompany}
+                    disabled={switching || selectedCompanyId === selectedCompany.id}
+                    sx={{ 
+                      minWidth: 200,
+                      borderRadius: 2,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                        boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                        transform: 'translateY(-2px)'
+                      },
+                      '&:disabled': {
+                        background: 'rgba(0, 0, 0, 0.12)',
+                        color: 'rgba(0, 0, 0, 0.26)'
+                      }
+                    }}
+                  >
+                    {switching ? 'Switching...' : selectedCompanyId === selectedCompany.id ? 'Current Company' : 'Switch Now'}
+                  </Button>
+                </Box>
               </Box>
             </CardContent>
           </Card>
         </Box>
       )}
+      </Box>
     </Box>
   )
 }

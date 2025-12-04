@@ -66,6 +66,7 @@ export const FeatureFlagProvider = ({ children }) => {
             wiki: true,
             companySetup: true,
             bulkImport: true,
+            shiftManagement: true,
           }
         })
       } finally {
@@ -124,6 +125,7 @@ export const FeatureFlagProvider = ({ children }) => {
       'wiki': featureFlags.pages.wiki,
       'company-setup': featureFlags.pages.companySetup,
       'bulk-import': featureFlags.pages.bulkImport,
+      'shift-management': featureFlags.pages.shiftManagement,
     }
 
     return pageMap[pathWithoutParams] !== undefined ? pageMap[pathWithoutParams] : true

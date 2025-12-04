@@ -11,6 +11,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Paper,
   Chip,
   IconButton,
@@ -29,7 +30,10 @@ import {
   Alert,
   LinearProgress,
   Tooltip,
-  InputAdornment
+  InputAdornment,
+  CircularProgress,
+  Avatar,
+  Grow
 } from '@mui/material'
 import {
   Visibility as ViewIcon,
@@ -67,17 +71,36 @@ const AdminTicketManagement = () => {
   const [replyAttachment, setReplyAttachment] = useState(null)
   const [ticketComments, setTicketComments] = useState([])
   const [attachmentObjectUrl, setAttachmentObjectUrl] = useState(null)
+  const [adminUsers, setAdminUsers] = useState([])
+  const [loadingAdmins, setLoadingAdmins] = useState(false)
+  const [orderBy, setOrderBy] = useState('')
+  const [order, setOrder] = useState('asc')
 
   useEffect(() => {
     fetchTickets()
     fetchMetrics()
-  }, [statusFilter, priorityFilter])
+  }, [statusFilter, priorityFilter, orderBy, order])
+
+  useEffect(() => {
+    if (assignDialogOpen) {
+      setAssignedAdmin('') // Reset selection when dialog opens
+      fetchAdminUsers()
+    } else {
+      setAssignedAdmin('') // Reset selection when dialog closes
+    }
+  }, [assignDialogOpen])
 
   const fetchTickets = async () => {
     try {
       setLoading(true)
       const response = await api.get('/admin/tickets')
       let filteredTickets = response.data.data
+
+      // Remove duplicates by ticket ID (in case backend returns duplicates)
+      const uniqueTickets = filteredTickets.filter((ticket, index, self) =>
+        index === self.findIndex(t => t.id === ticket.id)
+      )
+      filteredTickets = uniqueTickets
 
       // Apply filters
       if (statusFilter !== 'ALL') {
@@ -93,7 +116,9 @@ const AdminTicketManagement = () => {
         )
       }
 
-      setTickets(filteredTickets)
+      // Sort tickets
+      const sortedTickets = sortTickets(filteredTickets, orderBy, order)
+      setTickets(sortedTickets)
     } catch (error) {
       console.error('Failed to fetch tickets:', error)
     } finally {
@@ -150,7 +175,7 @@ const AdminTicketManagement = () => {
     if (attachmentUrl.startsWith('uploads/')) {
       // Extract the file path after uploads/
       const filePath = attachmentUrl.replace('uploads/', '')
-      return `/api/general-tickets/files?path=${encodeURIComponent(attachmentUrl)}`
+      return `/api/company-tickets/files?path=${encodeURIComponent(attachmentUrl)}`
     }
     return attachmentUrl
   }
@@ -169,10 +194,14 @@ const AdminTicketManagement = () => {
 
     try {
       const formData = new FormData()
-      formData.append('comment', JSON.stringify({
+      const commentData = {
         comment: replyText,
         isInternal: false
-      }))
+      }
+      // Append JSON with proper content type for @RequestPart
+      // Spring's @RequestPart expects the part to have a filename for proper deserialization
+      const commentBlob = new Blob([JSON.stringify(commentData)], { type: 'application/json' })
+      formData.append('comment', commentBlob, 'comment.json')
       
       if (replyAttachment) {
         formData.append('attachment', replyAttachment)
@@ -193,6 +222,11 @@ const AdminTicketManagement = () => {
       fetchTickets()
     } catch (error) {
       console.error('Failed to reply to ticket:', error)
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to reply to ticket'
+      alert(`Error: ${errorMessage}`)
+      if (error.response?.data?.errors) {
+        console.error('Validation errors:', error.response.data.errors)
+      }
     }
   }
 
@@ -209,8 +243,32 @@ const AdminTicketManagement = () => {
     }
   }
 
+  const fetchAdminUsers = async () => {
+    try {
+      setLoadingAdmins(true)
+      const response = await api.get('/users/admin-users')
+      console.log('Admin users response:', response.data)
+      if (response.data && response.data.success && response.data.data) {
+        console.log('Found admin users:', response.data.data.length, response.data.data)
+        setAdminUsers(response.data.data)
+      } else {
+        console.warn('Unexpected response format:', response.data)
+        setAdminUsers([])
+      }
+    } catch (error) {
+      console.error('Failed to fetch admin users:', error)
+      console.error('Error response:', error.response?.data)
+      setAdminUsers([])
+    } finally {
+      setLoadingAdmins(false)
+    }
+  }
+
   const handleAssignTicket = async () => {
-    if (!selectedTicket || !assignedAdmin) return
+    if (!selectedTicket || !assignedAdmin) {
+      console.warn('Cannot assign ticket: missing ticket or admin selection')
+      return
+    }
 
     try {
       await api.put(`/admin/tickets/${selectedTicket.id}/assign?adminUserId=${assignedAdmin}`)
@@ -222,6 +280,7 @@ const AdminTicketManagement = () => {
       }
     } catch (error) {
       console.error('Failed to assign ticket:', error)
+      console.error('Error details:', error.response?.data)
     }
   }
 
@@ -246,31 +305,418 @@ const AdminTicketManagement = () => {
     }
   }
 
+  const getStatusChipStyles = (status) => {
+    const baseStyles = {
+      borderRadius: 2,
+      fontWeight: 600,
+      transition: 'all 0.2s ease',
+      '&:hover': {
+        transform: 'translateY(-1px)'
+      }
+    }
+    
+    switch (status) {
+      case 'OPEN':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(33, 150, 243, 0.4)' }
+        }
+      case 'IN_PROGRESS':
+      case 'WAITING_FOR_CUSTOMER':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(255, 152, 0, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(255, 152, 0, 0.4)' }
+        }
+      case 'RESOLVED':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(76, 175, 80, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(76, 175, 80, 0.4)' }
+        }
+      case 'CLOSED':
+        return {
+          ...baseStyles,
+          background: 'rgba(158, 158, 158, 0.2)',
+          color: '#424242',
+          fontWeight: 500,
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 8px rgba(0, 0, 0, 0.15)' }
+        }
+      default:
+        return {
+          ...baseStyles,
+          background: 'rgba(158, 158, 158, 0.2)',
+          color: '#424242',
+          fontWeight: 500,
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 8px rgba(0, 0, 0, 0.15)' }
+        }
+    }
+  }
+
+  const getPriorityChipStyles = (priority) => {
+    const baseStyles = {
+      borderRadius: 2,
+      fontWeight: 600,
+      transition: 'all 0.2s ease',
+      '&:hover': {
+        transform: 'translateY(-1px)'
+      }
+    }
+    
+    switch (priority) {
+      case 'LOW':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(33, 150, 243, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(33, 150, 243, 0.4)' }
+        }
+      case 'MEDIUM':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(255, 152, 0, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(255, 152, 0, 0.4)' }
+        }
+      case 'HIGH':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(244, 67, 54, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(244, 67, 54, 0.4)' }
+        }
+      case 'CRITICAL':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(211, 47, 47, 0.4)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(211, 47, 47, 0.5)' }
+        }
+      default:
+        return {
+          ...baseStyles,
+          background: 'rgba(158, 158, 158, 0.2)',
+          color: '#424242',
+          fontWeight: 500,
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 8px rgba(0, 0, 0, 0.15)' }
+        }
+    }
+  }
+
+  const getStatusLabel = (status) => {
+    const labels = {
+      OPEN: t('tickets.open'),
+      IN_PROGRESS: t('tickets.inProgress'),
+      RESOLVED: t('tickets.resolved'),
+      CLOSED: t('tickets.closed'),
+      WAITING_FOR_CUSTOMER: t('adminTickets.waitingForCustomer')
+    }
+    return labels[status] || status.replace(/_/g, ' ')
+  }
+
+  const getPriorityLabel = (priority) => {
+    const labels = {
+      LOW: t('adminTickets.priorityLow'),
+      MEDIUM: t('adminTickets.priorityMedium'),
+      HIGH: t('adminTickets.priorityHigh'),
+      CRITICAL: t('adminTickets.priorityCritical')
+    }
+    return labels[priority] || priority
+  }
+
+  const getCategoryLabel = (category) => {
+    const labels = {
+      GENERAL: t('adminTickets.categoryGeneral'),
+      TECHNICAL: t('adminTickets.categoryTechnical'),
+      BILLING: t('adminTickets.categoryBilling'),
+      FEATURE_REQUEST: t('adminTickets.categoryFeatureRequest'),
+      BUG_REPORT: t('adminTickets.categoryBugReport'),
+      ACCOUNT_MANAGEMENT: t('adminTickets.categoryAccountManagement'),
+      ATTENDANCE_ISSUE: t('adminTickets.categoryAttendanceIssue'),
+      EMPLOYEE_MANAGEMENT: t('adminTickets.categoryEmployeeManagement'),
+      REPORT_ISSUE: t('adminTickets.categoryReportIssue'),
+      SYSTEM: t('adminTickets.categorySystem'),
+      FEATURE: t('adminTickets.categoryFeature'),
+      MAINTENANCE: t('adminTickets.categoryMaintenance'),
+      HR: t('tickets.hr'),
+      PAYROLL: t('tickets.payroll')
+    }
+    return labels[category] || category.replace(/_/g, ' ')
+  }
+
   const getSLAIndicator = (slaPercentage) => {
     if (slaPercentage >= 95) return { color: 'success', icon: <CheckCircleIcon /> }
     if (slaPercentage >= 80) return { color: 'warning', icon: <WarningIcon /> }
     return { color: 'error', icon: <ErrorIcon /> }
   }
 
-  return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-          <Typography variant="h4">{t('adminTickets.title')}</Typography>
-          <Typography variant="subtitle1" color="text.secondary">
-            {t('adminTickets.subtitle')}
-          </Typography>
-        </Box>
-        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => { fetchTickets(); fetchMetrics(); }}>
-          {t('common.refresh')}
-        </Button>
-      </Box>
+  const handleSort = (property) => {
+    const isAsc = orderBy === property && order === 'asc'
+    setOrder(isAsc ? 'desc' : 'asc')
+    setOrderBy(property)
+  }
 
-      <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} sx={{ mb: 3 }}>
-        <Tab label={t('adminTickets.allTickets')} />
-        <Tab label={t('adminTickets.metricsDashboard')} />
-        <Tab label={t('adminTickets.slaMonitor')} />
-      </Tabs>
+  const StatCard = ({ title, value, icon, color, subtitle, index = 0 }) => (
+    <Grow in timeout={600 + (index * 100)}>
+      <Card 
+        sx={{ 
+          height: '100%',
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: 4,
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+          transition: 'all 0.3s ease',
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: `linear-gradient(90deg, ${color} 0%, ${color}80 100%)`,
+            opacity: 0.8
+          },
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
+            '&::before': {
+              opacity: 1
+            }
+          }
+        }}
+      >
+        <CardContent sx={{ p: 3 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Box flex={1}>
+              <Typography 
+                color="textSecondary" 
+                gutterBottom 
+                variant="body2"
+                sx={{ fontWeight: 500, mb: 1 }}
+              >
+                {title}
+              </Typography>
+              <Typography 
+                variant="h3" 
+                component="div"
+                sx={{ 
+                  fontWeight: 700,
+                  background: `linear-gradient(135deg, ${color} 0%, ${color}80 100%)`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  mb: subtitle ? 0.5 : 0
+                }}
+              >
+                {value}
+              </Typography>
+              {subtitle && (
+                <Typography 
+                  variant="caption" 
+                  color="textSecondary"
+                  sx={{ fontWeight: 500, fontSize: '0.75rem' }}
+                >
+                  {subtitle}
+                </Typography>
+              )}
+            </Box>
+            <Avatar 
+              sx={{ 
+                bgcolor: color, 
+                width: 64, 
+                height: 64,
+                boxShadow: `0 4px 20px ${color}40`,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'scale(1.1) rotate(5deg)'
+                }
+              }}
+            >
+              {icon}
+            </Avatar>
+          </Box>
+        </CardContent>
+      </Card>
+    </Grow>
+  )
+
+  const sortTickets = (ticketsToSort, sortBy, sortOrder) => {
+    if (!sortBy) return ticketsToSort
+
+    const sorted = [...ticketsToSort].sort((a, b) => {
+      let aValue, bValue
+
+      switch (sortBy) {
+        case 'id':
+          aValue = a.id
+          bValue = b.id
+          break
+        case 'title':
+          aValue = a.title || ''
+          bValue = b.title || ''
+          // Use Turkish locale for proper Turkish character sorting
+          return sortOrder === 'asc' 
+            ? aValue.localeCompare(bValue, 'tr', { sensitivity: 'base' })
+            : bValue.localeCompare(aValue, 'tr', { sensitivity: 'base' })
+        case 'createdBy':
+          aValue = a.createdByUserName || ''
+          bValue = b.createdByUserName || ''
+          return sortOrder === 'asc' 
+            ? aValue.localeCompare(bValue, 'tr', { sensitivity: 'base' })
+            : bValue.localeCompare(aValue, 'tr', { sensitivity: 'base' })
+        case 'company':
+          aValue = a.companyName || ''
+          bValue = b.companyName || ''
+          return sortOrder === 'asc' 
+            ? aValue.localeCompare(bValue, 'tr', { sensitivity: 'base' })
+            : bValue.localeCompare(aValue, 'tr', { sensitivity: 'base' })
+        case 'category':
+          aValue = getCategoryLabel(a.category) || ''
+          bValue = getCategoryLabel(b.category) || ''
+          return sortOrder === 'asc' 
+            ? aValue.localeCompare(bValue, 'tr', { sensitivity: 'base' })
+            : bValue.localeCompare(aValue, 'tr', { sensitivity: 'base' })
+        case 'priority':
+          const priorityOrder = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }
+          aValue = priorityOrder[a.priority] || 0
+          bValue = priorityOrder[b.priority] || 0
+          break
+        case 'status':
+          const statusOrder = { OPEN: 1, IN_PROGRESS: 2, WAITING_FOR_CUSTOMER: 3, RESOLVED: 4, CLOSED: 5 }
+          aValue = statusOrder[a.status] || 0
+          bValue = statusOrder[b.status] || 0
+          break
+        case 'assignedTo':
+          aValue = a.assignedToUserName || ''
+          bValue = b.assignedToUserName || ''
+          return sortOrder === 'asc' 
+            ? aValue.localeCompare(bValue, 'tr', { sensitivity: 'base' })
+            : bValue.localeCompare(aValue, 'tr', { sensitivity: 'base' })
+        case 'createdAt':
+          aValue = new Date(a.createdAt).getTime()
+          bValue = new Date(b.createdAt).getTime()
+          break
+        default:
+          return 0
+      }
+
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue
+      }
+
+      return 0
+    })
+
+    return sorted
+  }
+
+  return (
+    <Box
+      sx={{
+        minHeight: 'calc(100vh - 64px)',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        position: 'relative',
+        margin: -3,
+        padding: 3,
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }
+      }}
+    >
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box>
+            <Typography 
+              variant="h4"
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                fontWeight: 700
+              }}
+            >
+              {t('pageTitles.adminTicketManagement')}
+            </Typography>
+            <Typography variant="subtitle1" color="text.secondary">
+              {t('adminTickets.subtitle')}
+            </Typography>
+          </Box>
+          <Button 
+            variant="outlined" 
+            startIcon={<RefreshIcon />} 
+            onClick={() => { fetchTickets(); fetchMetrics(); }}
+            sx={{
+              borderRadius: 2,
+              borderColor: '#667eea',
+              color: '#667eea',
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(10px)',
+              textTransform: 'none',
+              fontWeight: 600,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                borderColor: '#764ba2',
+                background: 'rgba(102, 126, 234, 0.1)',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)'
+              }
+            }}
+          >
+            {t('common.refresh')}
+          </Button>
+        </Box>
+
+        <Tabs 
+          value={activeTab} 
+          onChange={(e, v) => setActiveTab(v)} 
+          sx={{ 
+            mb: 3,
+            '& .MuiTab-root': {
+              borderRadius: 2,
+              mx: 0.5,
+              '&.Mui-selected': {
+                background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
+                color: '#667eea',
+                fontWeight: 600
+              }
+            },
+            '& .MuiTabs-indicator': {
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+              height: 3,
+              borderRadius: '3px 3px 0 0'
+            }
+          }}
+        >
+          <Tab label={t('adminTickets.allTickets')} />
+          <Tab label={t('adminTickets.metricsDashboard')} />
+          <Tab label={t('adminTickets.slaMonitor')} />
+        </Tabs>
 
       {/* Tab 1: All Tickets */}
       {activeTab === 0 && (
@@ -279,61 +725,106 @@ const AdminTicketManagement = () => {
           {metrics && (
             <Grid container spacing={3} sx={{ mb: 3 }}>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
-                    <Typography color="textSecondary" gutterBottom>{t('adminTickets.openTickets')}</Typography>
-                    <Typography variant="h3" color="primary">{metrics.openTickets}</Typography>
-                  </CardContent>
-                </Card>
+                <StatCard
+                  title={t('adminTickets.openTickets')}
+                  value={metrics.openTickets}
+                  icon={<CheckCircleIcon />}
+                  color="#2196f3"
+                  index={0}
+                />
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
-                    <Typography color="textSecondary" gutterBottom>{t('adminTickets.inProgressTickets')}</Typography>
-                    <Typography variant="h3" color="warning.main">{metrics.inProgressTickets}</Typography>
-                  </CardContent>
-                </Card>
+                <StatCard
+                  title={t('adminTickets.inProgressTickets')}
+                  value={metrics.inProgressTickets}
+                  icon={<WarningIcon />}
+                  color="#ff9800"
+                  index={1}
+                />
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
-                    <Typography color="textSecondary" gutterBottom>{t('adminTickets.resolvedTickets')}</Typography>
-                    <Typography variant="h3" color="success.main">{metrics.resolvedTickets}</Typography>
-                  </CardContent>
-                </Card>
+                <StatCard
+                  title={t('adminTickets.resolvedTickets')}
+                  value={metrics.resolvedTickets}
+                  icon={<CheckCircleIcon />}
+                  color="#4caf50"
+                  index={2}
+                />
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
-                    <Typography color="textSecondary" gutterBottom>{t('adminTickets.totalActive')}</Typography>
-                    <Typography variant="h3">{metrics.activeTickets}</Typography>
-                  </CardContent>
-                </Card>
+                <StatCard
+                  title={t('adminTickets.totalActive')}
+                  value={metrics.activeTickets}
+                  icon={<TrendingUpIcon />}
+                  color="#667eea"
+                  index={3}
+                />
               </Grid>
             </Grid>
           )}
 
           {/* Filters */}
-          <Paper sx={{ p: 2, mb: 3 }}>
+          <Paper 
+            sx={{ 
+              p: 2, 
+              mb: 3,
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 3,
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            }}
+          >
             <Grid container spacing={2}>
               <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
-                  placeholder={t('adminTickets.searchTickets')}
+                  size="small"
+                  label={t('common.search')}
+                  placeholder={t('adminTickets.searchTickets') || t('common.searchPlaceholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyUp={fetchTickets}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      '&:hover': {
+                        background: 'rgba(255, 255, 255, 0.95)',
+                      },
+                      '&.Mui-focused': {
+                        background: 'rgba(255, 255, 255, 1)',
+                        boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                      }
+                    }
+                  }}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <SearchIcon />
+                        <SearchIcon sx={{ color: '#667eea' }} />
                       </InputAdornment>
                     ),
                   }}
                 />
               </Grid>
               <Grid item xs={12} md={4}>
-                <FormControl fullWidth>
+                <FormControl 
+                  fullWidth 
+                  size="small"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      '&:hover': {
+                        background: 'rgba(255, 255, 255, 0.95)',
+                      },
+                      '&.Mui-focused': {
+                        background: 'rgba(255, 255, 255, 1)',
+                        boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                      }
+                    }
+                  }}
+                >
                   <InputLabel>{t('tickets.status')}</InputLabel>
                   <Select
                     value={statusFilter}
@@ -350,7 +841,23 @@ const AdminTicketManagement = () => {
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={4}>
-                <FormControl fullWidth>
+                <FormControl 
+                  fullWidth 
+                  size="small"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      '&:hover': {
+                        background: 'rgba(255, 255, 255, 0.95)',
+                      },
+                      '&.Mui-focused': {
+                        background: 'rgba(255, 255, 255, 1)',
+                        boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                      }
+                    }
+                  }}
+                >
                   <InputLabel>{t('tickets.priority')}</InputLabel>
                   <Select
                     value={priorityFilter}
@@ -369,20 +876,128 @@ const AdminTicketManagement = () => {
           </Paper>
 
           {/* Tickets Table */}
-          <TableContainer component={Paper}>
+          <TableContainer 
+            component={Paper}
+            sx={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 3,
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            }}
+          >
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>{t('tickets.ticketId')}</TableCell>
-                  <TableCell>{t('tickets.title')}</TableCell>
-                  <TableCell>{t('adminTickets.createdByHR')}</TableCell>
-                  <TableCell>{t('adminTickets.company')}</TableCell>
-                  <TableCell>{t('tickets.category')}</TableCell>
-                  <TableCell>{t('tickets.priority')}</TableCell>
-                  <TableCell>{t('tickets.status')}</TableCell>
-                  <TableCell>{t('tickets.assignedTo')}</TableCell>
-                  <TableCell>{t('tickets.createdAt')}</TableCell>
-                  <TableCell>{t('employees.actions')}</TableCell>
+                  <TableCell 
+                    sx={{ fontWeight: 700, background: 'rgba(102, 126, 234, 0.05)' }}
+                    sortDirection={orderBy === 'id' ? order : false}
+                  >
+                    <TableSortLabel
+                      active={orderBy === 'id'}
+                      direction={orderBy === 'id' ? order : 'asc'}
+                      onClick={() => handleSort('id')}
+                    >
+                      {t('tickets.ticketId')}
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell 
+                    sx={{ fontWeight: 700, background: 'rgba(102, 126, 234, 0.05)' }}
+                    sortDirection={orderBy === 'title' ? order : false}
+                  >
+                    <TableSortLabel
+                      active={orderBy === 'title'}
+                      direction={orderBy === 'title' ? order : 'asc'}
+                      onClick={() => handleSort('title')}
+                    >
+                      {t('tickets.title')}
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell 
+                    sx={{ fontWeight: 700, background: 'rgba(102, 126, 234, 0.05)' }}
+                    sortDirection={orderBy === 'createdBy' ? order : false}
+                  >
+                    <TableSortLabel
+                      active={orderBy === 'createdBy'}
+                      direction={orderBy === 'createdBy' ? order : 'asc'}
+                      onClick={() => handleSort('createdBy')}
+                    >
+                      {t('adminTickets.createdByHR')}
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell 
+                    sx={{ fontWeight: 700, background: 'rgba(102, 126, 234, 0.05)' }}
+                    sortDirection={orderBy === 'company' ? order : false}
+                  >
+                    <TableSortLabel
+                      active={orderBy === 'company'}
+                      direction={orderBy === 'company' ? order : 'asc'}
+                      onClick={() => handleSort('company')}
+                    >
+                      {t('adminTickets.company')}
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell 
+                    sx={{ fontWeight: 700, background: 'rgba(102, 126, 234, 0.05)' }}
+                    sortDirection={orderBy === 'category' ? order : false}
+                  >
+                    <TableSortLabel
+                      active={orderBy === 'category'}
+                      direction={orderBy === 'category' ? order : 'asc'}
+                      onClick={() => handleSort('category')}
+                    >
+                      {t('tickets.category')}
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell 
+                    sx={{ fontWeight: 700, background: 'rgba(102, 126, 234, 0.05)' }}
+                    sortDirection={orderBy === 'priority' ? order : false}
+                  >
+                    <TableSortLabel
+                      active={orderBy === 'priority'}
+                      direction={orderBy === 'priority' ? order : 'asc'}
+                      onClick={() => handleSort('priority')}
+                    >
+                      {t('tickets.priority')}
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell 
+                    sx={{ fontWeight: 700, background: 'rgba(102, 126, 234, 0.05)' }}
+                    sortDirection={orderBy === 'status' ? order : false}
+                  >
+                    <TableSortLabel
+                      active={orderBy === 'status'}
+                      direction={orderBy === 'status' ? order : 'asc'}
+                      onClick={() => handleSort('status')}
+                    >
+                      {t('tickets.status')}
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell 
+                    sx={{ fontWeight: 700, background: 'rgba(102, 126, 234, 0.05)' }}
+                    sortDirection={orderBy === 'assignedTo' ? order : false}
+                  >
+                    <TableSortLabel
+                      active={orderBy === 'assignedTo'}
+                      direction={orderBy === 'assignedTo' ? order : 'asc'}
+                      onClick={() => handleSort('assignedTo')}
+                    >
+                      {t('tickets.assignedTo')}
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell 
+                    sx={{ fontWeight: 700, background: 'rgba(102, 126, 234, 0.05)' }}
+                    sortDirection={orderBy === 'createdAt' ? order : false}
+                  >
+                    <TableSortLabel
+                      active={orderBy === 'createdAt'}
+                      direction={orderBy === 'createdAt' ? order : 'asc'}
+                      onClick={() => handleSort('createdAt')}
+                    >
+                      {t('tickets.createdAt')}
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 700, background: 'rgba(102, 126, 234, 0.05)' }}>{t('employees.actions')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -404,20 +1019,20 @@ const AdminTicketManagement = () => {
                       <TableCell>{ticket.createdByUserName}</TableCell>
                       <TableCell>{ticket.companyName}</TableCell>
                       <TableCell>
-                        <Chip label={ticket.category} size="small" />
+                        <Chip label={getCategoryLabel(ticket.category)} size="small" />
                       </TableCell>
                       <TableCell>
                         <Chip 
-                          label={ticket.priority} 
-                          color={getPriorityColor(ticket.priority)}
+                          label={getPriorityLabel(ticket.priority)} 
                           size="small"
+                          sx={getPriorityChipStyles(ticket.priority)}
                         />
                       </TableCell>
                       <TableCell>
                         <Chip 
-                          label={ticket.status.replace('_', ' ')} 
-                          color={getStatusColor(ticket.status)}
+                          label={getStatusLabel(ticket.status)} 
                           size="small"
+                          sx={getStatusChipStyles(ticket.status)}
                         />
                       </TableCell>
                       <TableCell>
@@ -428,6 +1043,17 @@ const AdminTicketManagement = () => {
                             onClick={() => {
                               setSelectedTicket(ticket)
                               setAssignDialogOpen(true)
+                            }}
+                            sx={{
+                              borderRadius: 2,
+                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                              color: 'white',
+                              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                              '&:hover': {
+                                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                                transform: 'translateY(-2px)'
+                              }
                             }}
                           >
                             {t('adminTickets.assign')}
@@ -468,7 +1094,15 @@ const AdminTicketManagement = () => {
       {activeTab === 1 && metrics && (
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
-            <Card>
+            <Card
+              sx={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+              }}
+            >
               <CardContent>
                 <Typography variant="h6" gutterBottom>SLA Compliance</Typography>
                 <Box sx={{ mb: 2 }}>
@@ -500,7 +1134,27 @@ const AdminTicketManagement = () => {
           </Grid>
 
           <Grid item xs={12} md={6}>
-            <Card>
+            <Card
+              sx={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: '4px',
+                  background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                  opacity: 0.8
+                }
+              }}
+            >
               <CardContent>
                 <Typography variant="h6" gutterBottom>Average Response Times</Typography>
                 <Typography variant="body1">
@@ -514,7 +1168,27 @@ const AdminTicketManagement = () => {
           </Grid>
 
           <Grid item xs={12}>
-            <Card>
+            <Card
+              sx={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: '4px',
+                  background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                  opacity: 0.8
+                }
+              }}
+            >
               <CardContent>
                 <Typography variant="h6" gutterBottom>Ticket Statistics</Typography>
                 <Grid container spacing={2}>
@@ -547,7 +1221,16 @@ const AdminTicketManagement = () => {
       {activeTab === 2 && metrics && (
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Alert severity="warning">
+            <Alert 
+              severity="warning"
+              sx={{
+                borderRadius: 3,
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+              }}
+            >
               <Typography variant="h6">SLA Breaches</Typography>
               <Typography>
                 First Response Breaches: {metrics.sla.firstResponseBreaches}<br />
@@ -558,6 +1241,7 @@ const AdminTicketManagement = () => {
           {/* Add detailed SLA breach list here */}
         </Grid>
       )}
+      </Box>
 
       {/* View Ticket Dialog */}
       <Dialog 
@@ -572,16 +1256,57 @@ const AdminTicketManagement = () => {
         }} 
         maxWidth="md" 
         fullWidth
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+              opacity: 0.8
+            }
+          }
+        }}
       >
         {selectedTicket && (
           <>
-            <DialogTitle>{t('tickets.title')} #{selectedTicket.id}: {selectedTicket.title}</DialogTitle>
+            <DialogTitle
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                fontWeight: 700,
+                fontSize: '1.5rem',
+                pb: 2
+              }}
+            >
+              {t('tickets.title')} #{selectedTicket.id}: {selectedTicket.title}
+            </DialogTitle>
             <DialogContent>
               <Grid container spacing={2}>
                 <Grid item xs={12}>
-                  <Chip label={selectedTicket.status} color={getStatusColor(selectedTicket.status)} sx={{ mr: 1 }} />
-                  <Chip label={selectedTicket.priority} color={getPriorityColor(selectedTicket.priority)} sx={{ mr: 1 }} />
-                  <Chip label={selectedTicket.category} />
+                  <Chip 
+                    label={getStatusLabel(selectedTicket.status)} 
+                    sx={{ mr: 1, ...getStatusChipStyles(selectedTicket.status) }} 
+                  />
+                  <Chip 
+                    label={getPriorityLabel(selectedTicket.priority)} 
+                    sx={{ mr: 1, ...getPriorityChipStyles(selectedTicket.priority) }} 
+                  />
+                  <Chip label={getCategoryLabel(selectedTicket.category)} />
                 </Grid>
                 <Grid item xs={12}>
                   <Typography variant="subtitle2">{t('adminTickets.company')}:</Typography>
@@ -667,14 +1392,37 @@ const AdminTicketManagement = () => {
                 </Grid>
               </Grid>
             </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setViewDialogOpen(false)}>{t('common.close')}</Button>
+            <DialogActions sx={{ p: 2.5, pt: 1 }}>
+              <Button 
+                onClick={() => setViewDialogOpen(false)}
+                sx={{ 
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  color: '#667eea',
+                  '&:hover': {
+                    background: 'rgba(102, 126, 234, 0.1)'
+                  }
+                }}
+              >
+                {t('common.close')}
+              </Button>
               <Button 
                 variant="contained" 
                 startIcon={<ReplyIcon />}
                 onClick={() => {
                   setViewDialogOpen(false)
                   setReplyDialogOpen(true)
+                }}
+                sx={{
+                  borderRadius: 2,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                    transform: 'translateY(-2px)'
+                  }
                 }}
               >
                 {t('adminTickets.reply')}
@@ -685,28 +1433,183 @@ const AdminTicketManagement = () => {
       </Dialog>
 
       {/* Assign Ticket Dialog */}
-      <Dialog open={assignDialogOpen} onClose={() => setAssignDialogOpen(false)}>
-        <DialogTitle>{t('adminTickets.assignTicket')}</DialogTitle>
+        <Dialog 
+        open={assignDialogOpen} 
+        onClose={() => {
+          setAssignDialogOpen(false)
+          setAssignedAdmin('')
+        }}
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+              opacity: 0.8
+            }
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            pb: 2
+          }}
+        >
+          {t('adminTickets.assignTicket')}
+        </DialogTitle>
         <DialogContent>
-          <TextField
-            fullWidth
-            label={t('adminTickets.adminUserId')}
-            type="number"
-            value={assignedAdmin}
-            onChange={(e) => setAssignedAdmin(e.target.value)}
-            margin="normal"
-            helperText={t('adminTickets.enterAdminUserId')}
-          />
+          <FormControl fullWidth margin="normal">
+            <InputLabel>{t('adminTickets.selectAdmin') || 'Select Admin'}</InputLabel>
+            <Select
+              value={assignedAdmin || ''}
+              label={t('adminTickets.selectAdmin') || 'Select Admin'}
+              onChange={(e) => setAssignedAdmin(String(e.target.value))}
+              disabled={loadingAdmins}
+              displayEmpty
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.95)',
+                  },
+                  '&.Mui-focused': {
+                    background: 'rgba(255, 255, 255, 1)',
+                    boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                  }
+                }
+              }}
+            >
+              {loadingAdmins ? (
+                <MenuItem disabled>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={20} />
+                    <Typography>{t('common.loading') || 'Loading...'}</Typography>
+                  </Box>
+                </MenuItem>
+              ) : adminUsers.length === 0 ? (
+                <MenuItem disabled>
+                  {t('adminTickets.noAdminsFound') || 'No admins found'}
+                </MenuItem>
+              ) : (
+                adminUsers.map((admin) => (
+                  <MenuItem key={admin.id} value={String(admin.id)}>
+                    <Box>
+                      <Typography variant="body1">
+                        {admin.firstName} {admin.lastName}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {admin.email}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))
+              )}
+            </Select>
+          </FormControl>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAssignDialogOpen(false)}>{t('common.cancel')}</Button>
-          <Button onClick={handleAssignTicket} variant="contained">{t('adminTickets.assign')}</Button>
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button 
+            onClick={() => setAssignDialogOpen(false)}
+            sx={{ 
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              color: '#667eea',
+              '&:hover': {
+                background: 'rgba(102, 126, 234, 0.1)'
+              }
+            }}
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button 
+            onClick={handleAssignTicket} 
+            variant="contained"
+            disabled={!assignedAdmin || loadingAdmins}
+            sx={{
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                transform: 'translateY(-2px)'
+              },
+              '&:disabled': {
+                background: 'rgba(0, 0, 0, 0.12)',
+                color: 'rgba(0, 0, 0, 0.26)'
+              }
+            }}
+          >
+            {t('adminTickets.assign')}
+          </Button>
         </DialogActions>
       </Dialog>
 
       {/* Reply Dialog */}
-      <Dialog open={replyDialogOpen} onClose={() => setReplyDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
+      <Dialog 
+        open={replyDialogOpen} 
+        onClose={() => setReplyDialogOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+              opacity: 0.8
+            }
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            pb: 2
+          }}
+        >
           {t('adminTickets.replyToTicket')} #{selectedTicket?.id}: {selectedTicket?.title}
         </DialogTitle>
         <DialogContent>
@@ -736,13 +1639,43 @@ const AdminTicketManagement = () => {
             )}
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setReplyDialogOpen(false)}>{t('common.cancel')}</Button>
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button 
+            onClick={() => setReplyDialogOpen(false)}
+            sx={{ 
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              color: '#667eea',
+              '&:hover': {
+                background: 'rgba(102, 126, 234, 0.1)'
+              }
+            }}
+          >
+            {t('common.cancel')}
+          </Button>
           <Button 
             onClick={handleReplyToTicket} 
             variant="contained"
             disabled={!replyText.trim()}
             startIcon={<ReplyIcon />}
+            sx={{
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                transform: 'translateY(-2px)'
+              },
+              '&:disabled': {
+                background: 'rgba(0, 0, 0, 0.12)',
+                color: 'rgba(0, 0, 0, 0.26)'
+              }
+            }}
           >
             {t('adminTickets.sendReply')}
           </Button>

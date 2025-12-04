@@ -23,7 +23,9 @@ import {
   IconButton,
   Tooltip,
   Stack,
-  LinearProgress
+  LinearProgress,
+  Avatar,
+  Grow
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -33,7 +35,6 @@ import {
   HourglassEmpty as PendingIcon,
   CalendarMonth as CalendarIcon,
   Edit as EditIcon,
-  FilterList as FilterIcon,
   Search as SearchIcon,
   TrendingUp as TrendingUpIcon,
   People as PeopleIcon,
@@ -45,7 +46,8 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon
+  ExpandLess as ExpandLessIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material'
 import dayjs from 'dayjs'
 import 'dayjs/locale/tr'
@@ -55,13 +57,12 @@ import { useTranslation } from 'react-i18next'
 
 dayjs.extend(isBetween)
 
-import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import { getErrorMessage } from '../utils/errorHandler'
 
 const LeaveRequests = () => {
-  const { t } = useLanguage()
+  const { t, i18n } = useTranslation()
   const { user, hasAnyRole } = useAuth()
   const [leaveRequests, setLeaveRequests] = useState([])
   const [allLeaveRequests, setAllLeaveRequests] = useState([])
@@ -104,16 +105,107 @@ const LeaveRequests = () => {
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [leaveTypeFilter, setLeaveTypeFilter] = useState('ALL')
   const [searchTerm, setSearchTerm] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
   const [expandedRequests, setExpandedRequests] = useState(new Set())
 
   const isAdmin = hasAnyRole(['ADMIN', 'HR'])
-  const { i18n } = useTranslation()
 
+  // StatCard component matching dashboard style (smaller for leave-requests page)
+  const StatCard = ({ title, value, icon, color, subtitle, index = 0 }) => (
+    <Grow in timeout={600 + (index * 100)}>
+      <Card 
+        sx={{ 
+          height: '100%',
+          cursor: 'default',
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: 3,
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          transition: 'all 0.3s ease',
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: color,
+            opacity: 0.8
+          },
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+            '&::before': {
+              opacity: 1
+            }
+          }
+        }}
+      >
+        <CardContent sx={{ p: 2 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Box flex={1}>
+              <Typography 
+                color="textSecondary" 
+                gutterBottom 
+                variant="body2"
+                sx={{ fontWeight: 500, mb: 0.5, fontSize: '0.875rem' }}
+              >
+                {title}
+              </Typography>
+              <Typography 
+                variant="h4" 
+                component="div"
+                sx={{ 
+                  fontWeight: 700,
+                  fontSize: '1.75rem',
+                  background: `linear-gradient(135deg, ${color} 0%, ${color}80 100%)`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}
+              >
+                {value}
+              </Typography>
+              {subtitle && (
+                <Typography 
+                  variant="caption" 
+                  color="textSecondary"
+                  sx={{ fontWeight: 500, fontSize: '0.7rem', mt: 0.5, display: 'block' }}
+                >
+                  {subtitle}
+                </Typography>
+              )}
+            </Box>
+            <Avatar 
+              sx={{ 
+                bgcolor: color, 
+                width: 48, 
+                height: 48,
+                boxShadow: `0 4px 20px ${color}40`,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'scale(1.1) rotate(5deg)'
+                }
+              }}
+            >
+              {icon}
+            </Avatar>
+          </Box>
+        </CardContent>
+      </Card>
+    </Grow>
+  )
+
+  // Force re-render when language changes
+  const [languageKey, setLanguageKey] = useState(i18n.language)
+  
+  // Ensure component re-renders when language changes
   useEffect(() => {
-    // Set dayjs locale based on current language
     const currentLang = i18n.language || localStorage.getItem('language') || 'en'
     dayjs.locale(currentLang === 'tr' ? 'tr' : 'en')
+    setLanguageKey(currentLang)
   }, [i18n.language])
 
   useEffect(() => {
@@ -227,15 +319,7 @@ const LeaveRequests = () => {
         requestData.employeeId = newRequest.employeeId
       }
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Submitting leave request:', requestData)
-      }
-
       const response = await api.post('/leave-requests', requestData)
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Leave request response:', response.data)
-      }
       
       setSuccess(t('leaveRequests.submittedSuccessfully'))
       setOpenDialog(false)
@@ -252,7 +336,6 @@ const LeaveRequests = () => {
       setTimeout(() => setSuccess(null), 3000)
     } catch (err) {
       console.error('Error creating leave request:', err)
-      console.error('Error response:', err.response?.data)
       const errorMessage = getErrorMessage(err, t('leaveRequests.failedToCreate'))
       setError(errorMessage)
     }
@@ -328,6 +411,30 @@ const LeaveRequests = () => {
     setOpenRejectDialog(true)
   }
 
+  const getStatusLabel = (status) => {
+    const labels = {
+      PENDING: t('common.status.pending'),
+      APPROVED: t('common.status.approved'),
+      REJECTED: t('common.status.rejected'),
+      CANCELLED: t('common.status.cancelled')
+    }
+    return labels[status] || status
+  }
+
+  const getLeaveTypeLabel = (leaveType) => {
+    const labels = {
+      ANNUAL: t('leaveRequests.annualLeave'),
+      SICK: t('leaveRequests.sickLeave'),
+      EMERGENCY: t('leaveRequests.emergencyLeave'),
+      PERSONAL: t('leaveRequests.personalLeave'),
+      MATERNITY: t('leaveRequests.maternityLeave'),
+      PATERNITY: t('leaveRequests.paternityLeave'),
+      UNPAID: t('leaveRequests.unpaidLeave'),
+      BEREAVEMENT: t('leaveRequests.bereavementLeave')
+    }
+    return labels[leaveType] || leaveType
+  }
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'APPROVED': return 'success'
@@ -335,6 +442,62 @@ const LeaveRequests = () => {
       case 'PENDING': return 'warning'
       case 'CANCELLED': return 'default'
       default: return 'default'
+    }
+  }
+
+  const getStatusChipStyles = (status) => {
+    const baseStyles = {
+      borderRadius: 2,
+      fontWeight: 600,
+      transition: 'all 0.2s ease',
+      '&:hover': {
+        transform: 'translateY(-1px)'
+      }
+    }
+    
+    switch (status) {
+      case 'APPROVED':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(76, 175, 80, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(76, 175, 80, 0.4)' }
+        }
+      case 'REJECTED':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(244, 67, 54, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(244, 67, 54, 0.4)' }
+        }
+      case 'PENDING':
+        return {
+          ...baseStyles,
+          background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(255, 152, 0, 0.3)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 12px rgba(255, 152, 0, 0.4)' }
+        }
+      case 'CANCELLED':
+        return {
+          ...baseStyles,
+          background: 'rgba(158, 158, 158, 0.2)',
+          color: '#424242',
+          fontWeight: 500,
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 8px rgba(0, 0, 0, 0.15)' }
+        }
+      default:
+        return {
+          ...baseStyles,
+          background: 'rgba(158, 158, 158, 0.2)',
+          color: '#424242',
+          fontWeight: 500,
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+          '&:hover': { ...baseStyles['&:hover'], boxShadow: '0 4px 8px rgba(0, 0, 0, 0.15)' }
+        }
     }
   }
 
@@ -648,7 +811,7 @@ const LeaveRequests = () => {
                         borderLeftWidth: isStartOfLeave ? '1px' : '0px',
                         borderRightWidth: isEndOfLeave ? '1px' : '0px'
                       }}
-                      title={`${getEmployeeName(leave)} - ${leave.leaveType} (${leave.startDate.format('MMM D')} - ${leave.endDate.format('MMM D')})`}
+                      title={`${getEmployeeName(leave)} - ${getLeaveTypeLabel(leave.leaveType)} (${leave.startDate.format('MMM D')} - ${leave.endDate.format('MMM D')})`}
                     >
                       <Typography
                         variant="caption"
@@ -664,7 +827,7 @@ const LeaveRequests = () => {
                           px: 0.5
                         }}
                       >
-                        {getEmployeeName(leave)} - {leave.leaveType}
+                        {getEmployeeName(leave)} - {getLeaveTypeLabel(leave.leaveType)}
                       </Typography>
                     </Box>
                   )
@@ -697,21 +860,84 @@ const LeaveRequests = () => {
     const annualRemaining = leaveBalances.annual - leaveBalances.used
 
     return (
-      <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
+      <Box 
+        key={`leave-requests-employee-${languageKey}`}
+        sx={{ 
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          minHeight: 'calc(100vh - 64px)',
+          background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+          margin: -3,
+          padding: 3,
+          boxSizing: 'border-box',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+            pointerEvents: 'none',
+            zIndex: 0
+          }
+        }}
+      >
+        <Box sx={{ position: 'relative', zIndex: 1, width: '100%' }}>
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
           <Box>
-            <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
-              {t('leaveRequests.title')}
+              <Box display="flex" alignItems="center" gap={2} mb={1}>
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)'
+                  }}
+                >
+                  <EventNoteIcon sx={{ fontSize: 28, color: 'white' }} />
+                </Box>
+                <Box>
+                  <Typography 
+                    variant="h4"
+                    sx={{
+                      fontWeight: 700,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text'
+                    }}
+                  >
+              {t('pageTitles.leaveRequests')}
             </Typography>
             <Typography variant="body1" color="text.secondary">
               {t('leaveRequests.manageTimeOffRequests')}
             </Typography>
+                </Box>
+              </Box>
           </Box>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => setOpenDialog(true)}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
           >
             {t('leaveRequests.requestLeave')}
           </Button>
@@ -732,198 +958,100 @@ const LeaveRequests = () => {
         {/* Leave Balance Cards - Redesigned */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} md={4}>
-            <Card 
-              sx={{ 
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                color: 'white',
-                position: 'relative',
-                overflow: 'hidden',
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: -50,
-                  right: -50,
-                  width: 150,
-                  height: 150,
-                  borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.1)'
-                }
-              }}
-            >
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                  <Box>
-                    <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
-                      {t('leaveRequests.annualLeave')}
-                    </Typography>
-                    <Typography variant="h3" sx={{ fontWeight: 700, mb: 0.5 }}>
-                      {annualRemaining}
-                    </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                      {t('leaveRequests.ofDaysRemaining', { total: leaveBalances.annual })}
-                    </Typography>
-                  </Box>
-                  <CalendarIcon sx={{ fontSize: 48, opacity: 0.3 }} />
-                </Box>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={(annualRemaining / leaveBalances.annual) * 100} 
-                  sx={{ 
-                    height: 8, 
-                    borderRadius: 4,
-                    bgcolor: 'rgba(255,255,255,0.2)',
-                    '& .MuiLinearProgress-bar': {
-                      bgcolor: 'white'
-                    }
-                  }} 
-                />
-              </CardContent>
-            </Card>
+            <StatCard
+              title={t('leaveRequests.annualLeave')}
+              value={annualRemaining}
+              icon={<CalendarIcon />}
+              color="#1976d2"
+              subtitle={t('leaveRequests.ofDaysRemaining', { total: leaveBalances.annual })}
+              index={0}
+            />
           </Grid>
 
           <Grid item xs={12} md={4}>
-            <Card 
-              sx={{ 
-                background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                color: 'white',
-                position: 'relative',
-                overflow: 'hidden',
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: -50,
-                  right: -50,
-                  width: 150,
-                  height: 150,
-                  borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.1)'
-                }
-              }}
-            >
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                  <Box>
-                    <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
-                      {t('leaveRequests.sickLeave')}
-                    </Typography>
-                    <Typography variant="h3" sx={{ fontWeight: 700, mb: 0.5 }}>
-                      {leaveBalances.sick}
-                    </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                      {t('leaveRequests.daysAvailable')}
-                    </Typography>
-                  </Box>
-                  <AccessTimeIcon sx={{ fontSize: 48, opacity: 0.3 }} />
-                </Box>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={100} 
-                  sx={{ 
-                    height: 8, 
-                    borderRadius: 4,
-                    bgcolor: 'rgba(255,255,255,0.2)',
-                    '& .MuiLinearProgress-bar': {
-                      bgcolor: 'white'
-                    }
-                  }} 
-                />
-              </CardContent>
-            </Card>
+            <StatCard
+              title={t('leaveRequests.sickLeave')}
+              value={leaveBalances.sick}
+              icon={<AccessTimeIcon />}
+              color="#4caf50"
+              subtitle={t('leaveRequests.daysAvailable')}
+              index={1}
+            />
           </Grid>
 
           <Grid item xs={12} md={4}>
-            <Card 
-              sx={{ 
-                background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                color: 'white',
-                position: 'relative',
-                overflow: 'hidden',
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: -50,
-                  right: -50,
-                  width: 150,
-                  height: 150,
-                  borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.1)'
-                }
-              }}
-            >
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                  <Box>
-                    <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
-                      {t('leaveRequests.usedThisYear')}
-                    </Typography>
-                    <Typography variant="h3" sx={{ fontWeight: 700, mb: 0.5 }}>
-                      {leaveBalances.used}
-                    </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                      {t('leaveRequests.daysTaken')}
-                    </Typography>
-                  </Box>
-                  <TrendingUpIcon sx={{ fontSize: 48, opacity: 0.3 }} />
-                </Box>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={(leaveBalances.used / (leaveBalances.annual + leaveBalances.used)) * 100} 
-                  sx={{ 
-                    height: 8, 
-                    borderRadius: 4,
-                    bgcolor: 'rgba(255,255,255,0.2)',
-                    '& .MuiLinearProgress-bar': {
-                      bgcolor: 'white'
-                    }
-                  }} 
-                />
-              </CardContent>
-            </Card>
+            <StatCard
+              title={t('leaveRequests.usedThisYear')}
+              value={leaveBalances.used}
+              icon={<TrendingUpIcon />}
+              color="#ff9800"
+              subtitle={t('leaveRequests.daysTaken')}
+              index={2}
+            />
           </Grid>
         </Grid>
 
         {/* Quick Stats */}
-        <Grid container spacing={2} sx={{ mb: 4 }}>
+        <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={4}>
-            <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.light' }}>
-              <Typography variant="h4" color="warning.dark" sx={{ fontWeight: 600 }}>
-                {pendingCount}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {t('leaveRequests.pendingRequests')}
-              </Typography>
-            </Paper>
+            <StatCard
+              title={t('leaveRequests.pendingRequests')}
+              value={pendingCount}
+              icon={<PendingIcon />}
+              color="#ff9800"
+              index={3}
+            />
           </Grid>
           <Grid item xs={12} sm={4}>
-            <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.light' }}>
-              <Typography variant="h4" color="success.dark" sx={{ fontWeight: 600 }}>
-                {approvedCount}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {t('leaveRequests.approvedRequests')}
-              </Typography>
-            </Paper>
+            <StatCard
+              title={t('leaveRequests.approvedRequests')}
+              value={approvedCount}
+              icon={<CheckCircleIcon />}
+              color="#4caf50"
+              index={4}
+            />
           </Grid>
           <Grid item xs={12} sm={4}>
-            <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'primary.light' }}>
-              <Typography variant="h4" color="primary.dark" sx={{ fontWeight: 600 }}>
-                {myRequests.length}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Total Requests
-              </Typography>
-            </Paper>
+            <StatCard
+              title="Total Requests"
+              value={myRequests.length}
+              icon={<EventNoteIcon />}
+              color="#9c27b0"
+              index={5}
+            />
           </Grid>
         </Grid>
 
         {/* Main Content */}
-        <Grid container spacing={3}>
+        <Grid container spacing={3} sx={{ width: '100%' }}>
           {/* Left Column - Calendar */}
           <Grid item xs={12} md={5}>
-            <Paper sx={{ p: 3, height: 'fit-content', position: 'sticky', top: 20 }}>
+            <Card
+              sx={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                transition: 'all 0.3s ease',
+                position: 'sticky',
+                p: 3,
+                height: 'fit-content',
+                top: 20
+              }}
+            >
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <CalendarIcon sx={{ mr: 1, color: 'primary.main' }} />
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                <CalendarIcon sx={{ mr: 1, color: '#667eea' }} />
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    fontWeight: 600,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                  }}
+                >
                   {t('leaveRequests.teamCalendar')}
                 </Typography>
               </Box>
@@ -1072,18 +1200,37 @@ const LeaveRequests = () => {
                   </Stack>
                 )}
               </Box>
-            </Paper>
+            </Card>
           </Grid>
 
           {/* Right Column - Requests */}
           <Grid item xs={12} md={7}>
             {/* My Requests List */}
-            <Paper sx={{ p: 3 }}>
+            <Card
+              sx={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                transition: 'all 0.3s ease',
+                p: 3
+              }}
+            >
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    fontWeight: 600,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                  }}
+                >
                   {t('leaveRequests.myLeaveRequests')}
                 </Typography>
-                <Chip label={myRequests.length} color="primary" />
+                <Chip label={myRequests.length} sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }} />
               </Box>
 
               {loading ? (
@@ -1103,6 +1250,16 @@ const LeaveRequests = () => {
                     variant="contained"
                     startIcon={<AddIcon />}
                     onClick={() => setOpenDialog(true)}
+                    sx={{
+                      borderRadius: 2,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                        boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                        transform: 'translateY(-2px)'
+                      }
+                    }}
                   >
                     {t('leaveRequests.createFirstRequest')}
                   </Button>
@@ -1111,9 +1268,11 @@ const LeaveRequests = () => {
                 <Stack spacing={2}>
                   {myRequests.map((request) => {
                     const isExpanded = expandedRequests.has(request.id)
+                    const statusLabel = getStatusLabel(request.status)
+                    const leaveTypeLabel = getLeaveTypeLabel(request.leaveType)
                     return (
                       <Card 
-                        key={request.id} 
+                        key={`employee-card-${languageKey}-${request.id}`} 
                         sx={{ 
                           border: '1px solid',
                           borderColor: 'divider',
@@ -1140,15 +1299,17 @@ const LeaveRequests = () => {
                             {/* Line 1: Chips and Date */}
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
                               <Chip
-                                label={request.leaveType}
+                                key={`leave-type-employee-${languageKey}-${request.id}-${leaveTypeLabel}`}
+                                label={leaveTypeLabel}
                                 color={getLeaveTypeColor(request.leaveType)}
                                 size="small"
                               />
                               <Chip
+                                key={`status-list-${languageKey}-${request.id}-${statusLabel}`}
                                 icon={getStatusIcon(request.status)}
-                                label={request.status}
-                                color={getStatusColor(request.status)}
+                                label={statusLabel}
                                 size="small"
+                                sx={getStatusChipStyles(request.status)}
                               />
                               <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.primary' }}>
                                 {dayjs(request.startDate).locale(i18n.language === 'tr' ? 'tr' : 'en').format('D MMM')} - {dayjs(request.endDate).locale(i18n.language === 'tr' ? 'tr' : 'en').format('D MMM YYYY')}
@@ -1245,15 +1406,50 @@ const LeaveRequests = () => {
                   })}
                 </Stack>
               )}
-            </Paper>
+            </Card>
           </Grid>
         </Grid>
 
         {/* Create Leave Request Dialog */}
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+        <Dialog 
+          open={openDialog} 
+          onClose={() => setOpenDialog(false)} 
+          maxWidth="sm" 
+          fullWidth
+          PaperProps={{
+            sx: {
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 3,
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '4px',
+                background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                opacity: 0.8
+              }
+            }
+          }}
+        >
           <DialogTitle>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}
+              >
                 {t('leaveRequests.requestLeave')}
               </Typography>
               <IconButton onClick={() => setOpenDialog(false)} size="small">
@@ -1271,10 +1467,12 @@ const LeaveRequests = () => {
               >
                 <MenuItem value="ANNUAL">{t('leaveRequests.annualLeave')}</MenuItem>
                 <MenuItem value="SICK">{t('leaveRequests.sickLeave')}</MenuItem>
-                <MenuItem value="UNPAID">{t('leaveRequests.unpaidLeave')}</MenuItem>
+                <MenuItem value="EMERGENCY">{t('leaveRequests.emergencyLeave')}</MenuItem>
+                <MenuItem value="PERSONAL">{t('leaveRequests.personalLeave')}</MenuItem>
                 <MenuItem value="MATERNITY">{t('leaveRequests.maternityLeave')}</MenuItem>
                 <MenuItem value="PATERNITY">{t('leaveRequests.paternityLeave')}</MenuItem>
-                <MenuItem value="PERSONAL">{t('leaveRequests.personalLeave')}</MenuItem>
+                <MenuItem value="UNPAID">{t('leaveRequests.unpaidLeave')}</MenuItem>
+                <MenuItem value="BEREAVEMENT">{t('leaveRequests.bereavementLeave')}</MenuItem>
               </Select>
             </FormControl>
 
@@ -1299,13 +1497,16 @@ const LeaveRequests = () => {
               inputProps={{ min: newRequest.startDate }}
             />
 
-            {newRequest.startDate && newRequest.endDate && (
-              <Alert severity="info" sx={{ mt: 2 }}>
-                <Typography variant="body2">
-                  <strong>{t('leaveRequests.totalDays')}:</strong> {calculateDays()} {t('leaveRequests.day', { count: calculateDays() })}
-                </Typography>
-              </Alert>
-            )}
+            {newRequest.startDate && newRequest.endDate && (() => {
+              const totalDays = calculateDays()
+              return (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  <Typography variant="body2">
+                    <strong>{t('leaveRequests.totalDays')}:</strong> {totalDays} {t('leaveRequests.day', { count: totalDays })}
+                  </Typography>
+                </Alert>
+              )
+            })()}
 
             <TextField
               fullWidth
@@ -1318,28 +1519,98 @@ const LeaveRequests = () => {
               placeholder={t('leaveRequests.reasonPlaceholder')}
             />
           </DialogContent>
-          <DialogActions sx={{ p: 2 }}>
-            <Button onClick={() => setOpenDialog(false)}>{t('common.cancel')}</Button>
+          <DialogActions sx={{ p: 2.5, pt: 1 }}>
+            <Button 
+              onClick={() => setOpenDialog(false)}
+              sx={{ borderRadius: 2 }}
+            >
+              {t('common.cancel')}
+            </Button>
             <Button
               onClick={handleCreateRequest}
               variant="contained"
-              disabled={!newRequest.startDate || !newRequest.endDate}
+              disabled={!newRequest.startDate || !newRequest.endDate || (newRequest.startDate && newRequest.endDate && new Date(newRequest.endDate) < new Date(newRequest.startDate))}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                },
+                '&:disabled': {
+                  background: 'rgba(0, 0, 0, 0.12)',
+                  color: 'rgba(0, 0, 0, 0.26)'
+                }
+              }}
             >
               {t('leaveRequests.submitRequest')}
             </Button>
           </DialogActions>
         </Dialog>
+        </Box>
       </Box>
     )
   }
 
   // HR/Admin View - Keep existing functionality but with improvements
   return (
-    <Box sx={{ p: 3 }}>
+    <Box
+      key={`leave-requests-${languageKey}`}
+      sx={{
+        minHeight: 'calc(100vh - 64px)',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        position: 'relative',
+        margin: -3,
+        padding: 3,
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }
+      }}
+    >
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 600 }}>
-          {t('leaveRequests.title')}
+          <Box>
+            <Box display="flex" alignItems="center" gap={2} mb={1}>
+              <Box
+                sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)'
+                }}
+              >
+                <EventNoteIcon sx={{ fontSize: 28, color: 'white' }} />
+              </Box>
+              <Box>
+                <Typography 
+                  variant="h4"
+                  sx={{
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                  }}
+                >
+          {t('pageTitles.leaveRequests')}
         </Typography>
+              </Box>
+            </Box>
+          </Box>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
             variant={viewMode === 'calendar' ? 'contained' : 'outlined'}
@@ -1356,16 +1627,19 @@ const LeaveRequests = () => {
             {t('leaveRequests.listView')}
           </Button>
           <Button
-            variant={showFilters ? 'contained' : 'outlined'}
-            startIcon={<FilterIcon />}
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            {t('common.filter')}
-          </Button>
-          <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => setOpenDialog(true)}
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                transform: 'translateY(-2px)'
+              }
+            }}
           >
             {t('leaveRequests.createLeaveRequest')}
           </Button>
@@ -1388,86 +1662,186 @@ const LeaveRequests = () => {
       {statistics && (
         <Grid container spacing={3} sx={{ mb: 3 }}>
           <Grid item xs={12} sm={6} md={2.4}>
-            <Card>
+            <Card
+              sx={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: '4px',
+                  background: '#667eea',
+                  opacity: 0.8
+                }
+              }}
+            >
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
                     <Typography color="textSecondary" gutterBottom variant="body2">
                       {t('leaveRequests.totalRequests')}
                     </Typography>
-                    <Typography variant="h4">
+                    <Typography variant="h4" sx={{ fontWeight: 700, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                       {statistics.total}
                     </Typography>
                   </Box>
-                  <EventNoteIcon sx={{ fontSize: 40, color: 'primary.main', opacity: 0.3 }} />
+                  <EventNoteIcon sx={{ fontSize: 40, color: '#667eea', opacity: 0.3 }} />
                 </Box>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={2.4}>
-            <Card sx={{ bgcolor: 'warning.light' }}>
+            <Card
+              sx={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: '4px',
+                  background: '#ff9800',
+                  opacity: 0.8
+                }
+              }}
+            >
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
                     <Typography color="textSecondary" gutterBottom variant="body2">
                       {t('leaveRequests.pending')}
                     </Typography>
-                    <Typography variant="h4" color="warning.dark">
+                    <Typography variant="h4" sx={{ fontWeight: 700, color: '#ff9800' }}>
                       {statistics.pending}
                     </Typography>
                   </Box>
-                  <PendingIcon sx={{ fontSize: 40, color: 'warning.dark', opacity: 0.3 }} />
+                  <PendingIcon sx={{ fontSize: 40, color: '#ff9800', opacity: 0.3 }} />
                 </Box>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={2.4}>
-            <Card sx={{ bgcolor: 'success.light' }}>
+            <Card
+              sx={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: '4px',
+                  background: '#4caf50',
+                  opacity: 0.8
+                }
+              }}
+            >
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
                     <Typography color="textSecondary" gutterBottom variant="body2">
                       {t('leaveRequests.approved')}
                     </Typography>
-                    <Typography variant="h4" color="success.dark">
+                    <Typography variant="h4" sx={{ fontWeight: 700, color: '#4caf50' }}>
                       {statistics.approved}
                     </Typography>
                   </Box>
-                  <CheckCircleIcon sx={{ fontSize: 40, color: 'success.dark', opacity: 0.3 }} />
+                  <CheckCircleIcon sx={{ fontSize: 40, color: '#4caf50', opacity: 0.3 }} />
                 </Box>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={2.4}>
-            <Card sx={{ bgcolor: 'error.light' }}>
+            <Card
+              sx={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: '4px',
+                  background: '#f44336',
+                  opacity: 0.8
+                }
+              }}
+            >
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
                     <Typography color="textSecondary" gutterBottom variant="body2">
                       {t('leaveRequests.rejected')}
                     </Typography>
-                    <Typography variant="h4" color="error.dark">
+                    <Typography variant="h4" sx={{ fontWeight: 700, color: '#f44336' }}>
                       {statistics.rejected}
                     </Typography>
                   </Box>
-                  <CancelIcon sx={{ fontSize: 40, color: 'error.dark', opacity: 0.3 }} />
+                  <CancelIcon sx={{ fontSize: 40, color: '#f44336', opacity: 0.3 }} />
                 </Box>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={2.4}>
-            <Card>
+            <Card
+              sx={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: '4px',
+                  background: '#667eea',
+                  opacity: 0.8
+                }
+              }}
+            >
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
                     <Typography color="textSecondary" gutterBottom variant="body2">
                       {t('leaveRequests.totalDaysApproved')}
                     </Typography>
-                    <Typography variant="h4">
+                    <Typography variant="h4" sx={{ fontWeight: 700, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                       {statistics.totalDays}
                     </Typography>
                   </Box>
-                  <TrendingUpIcon sx={{ fontSize: 40, color: 'primary.main', opacity: 0.3 }} />
+                  <TrendingUpIcon sx={{ fontSize: 40, color: '#667eea', opacity: 0.3 }} />
                 </Box>
               </CardContent>
             </Card>
@@ -1476,82 +1850,188 @@ const LeaveRequests = () => {
       )}
 
       {/* Filters Section */}
-      {showFilters && (
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label={t('common.search')}
-                placeholder={t('leaveRequests.searchPlaceholder')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <FormControl fullWidth>
-                <InputLabel>{t('leaveRequests.status')}</InputLabel>
-                <Select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  label={t('leaveRequests.status')}
-                >
-                  <MenuItem value="ALL">{t('leaveRequests.allStatus')}</MenuItem>
-                  <MenuItem value="PENDING">{t('leaveRequests.pending')}</MenuItem>
-                  <MenuItem value="APPROVED">{t('leaveRequests.approved')}</MenuItem>
-                  <MenuItem value="REJECTED">{t('leaveRequests.rejected')}</MenuItem>
-                  <MenuItem value="CANCELLED">{t('leaveRequests.cancelled')}</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <FormControl fullWidth>
-                <InputLabel>{t('leaveRequests.leaveType')}</InputLabel>
-                <Select
-                  value={leaveTypeFilter}
-                  onChange={(e) => setLeaveTypeFilter(e.target.value)}
-                  label={t('leaveRequests.leaveType')}
-                >
-                  <MenuItem value="ALL">{t('leaveRequests.allTypes')}</MenuItem>
-                  <MenuItem value="ANNUAL">{t('leaveRequests.annualLeave')}</MenuItem>
-                  <MenuItem value="SICK">{t('leaveRequests.sickLeave')}</MenuItem>
-                  <MenuItem value="UNPAID">{t('leaveRequests.unpaidLeave')}</MenuItem>
-                  <MenuItem value="MATERNITY">{t('leaveRequests.maternityLeave')}</MenuItem>
-                  <MenuItem value="PATERNITY">{t('leaveRequests.paternityLeave')}</MenuItem>
-                  <MenuItem value="PERSONAL">{t('leaveRequests.personalLeave')}</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <Button
-                fullWidth
-                variant="outlined"
-                onClick={() => {
-                  setStatusFilter('ALL')
-                  setLeaveTypeFilter('ALL')
-                  setSearchTerm('')
+        <Card
+          sx={{ 
+            p: 2, 
+            mb: 3,
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 4,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+          }}
+        >
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6} md={4}>
+            <TextField
+              fullWidth
+              size="small"
+              label={t('common.search')}
+              placeholder={t('leaveRequests.searchPlaceholder') || t('common.searchPlaceholder')}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.95)',
+                  },
+                  '&.Mui-focused': {
+                    background: 'rgba(255, 255, 255, 1)',
+                    boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                  }
+                }
+              }}
+              InputProps={{
+                startAdornment: <SearchIcon sx={{ mr: 1, color: '#667eea' }} />
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl 
+              fullWidth 
+              size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.95)',
+                  },
+                  '&.Mui-focused': {
+                    background: 'rgba(255, 255, 255, 1)',
+                    boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                  }
+                }
+              }}
+            >
+              <InputLabel>{t('leaveRequests.status')}</InputLabel>
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                label={t('leaveRequests.status')}
+                renderValue={(value) => {
+                  if (value === 'ALL') return t('leaveRequests.allStatus')
+                  if (value === 'PENDING') return t('leaveRequests.pending')
+                  if (value === 'APPROVED') return t('leaveRequests.approved')
+                  if (value === 'REJECTED') return t('leaveRequests.rejected')
+                  if (value === 'CANCELLED') return t('leaveRequests.cancelled')
+                  return value
                 }}
               >
-                {t('leaveRequests.clearFilters')}
-              </Button>
-            </Grid>
+                <MenuItem value="ALL">{t('leaveRequests.allStatus')}</MenuItem>
+                <MenuItem value="PENDING">{t('leaveRequests.pending')}</MenuItem>
+                <MenuItem value="APPROVED">{t('leaveRequests.approved')}</MenuItem>
+                <MenuItem value="REJECTED">{t('leaveRequests.rejected')}</MenuItem>
+                <MenuItem value="CANCELLED">{t('leaveRequests.cancelled')}</MenuItem>
+              </Select>
+            </FormControl>
           </Grid>
-        </Paper>
-      )}
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl 
+              fullWidth 
+              size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.95)',
+                  },
+                  '&.Mui-focused': {
+                    background: 'rgba(255, 255, 255, 1)',
+                    boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                  }
+                }
+              }}
+            >
+              <InputLabel>{t('leaveRequests.leaveType')}</InputLabel>
+              <Select
+                value={leaveTypeFilter}
+                onChange={(e) => setLeaveTypeFilter(e.target.value)}
+                label={t('leaveRequests.leaveType')}
+                renderValue={(value) => {
+                  if (value === 'ALL') return t('leaveRequests.allTypes')
+                  if (value === 'ANNUAL') return t('leaveRequests.annualLeave')
+                  if (value === 'SICK') return t('leaveRequests.sickLeave')
+                  if (value === 'EMERGENCY') return t('leaveRequests.emergencyLeave')
+                  if (value === 'PERSONAL') return t('leaveRequests.personalLeave')
+                  if (value === 'MATERNITY') return t('leaveRequests.maternityLeave')
+                  if (value === 'PATERNITY') return t('leaveRequests.paternityLeave')
+                  if (value === 'UNPAID') return t('leaveRequests.unpaidLeave')
+                  if (value === 'BEREAVEMENT') return t('leaveRequests.bereavementLeave')
+                  return value
+                }}
+              >
+                <MenuItem value="ALL">{t('leaveRequests.allTypes')}</MenuItem>
+                <MenuItem value="ANNUAL">{t('leaveRequests.annualLeave')}</MenuItem>
+                <MenuItem value="SICK">{t('leaveRequests.sickLeave')}</MenuItem>
+                <MenuItem value="EMERGENCY">{t('leaveRequests.emergencyLeave')}</MenuItem>
+                <MenuItem value="PERSONAL">{t('leaveRequests.personalLeave')}</MenuItem>
+                <MenuItem value="MATERNITY">{t('leaveRequests.maternityLeave')}</MenuItem>
+                <MenuItem value="PATERNITY">{t('leaveRequests.paternityLeave')}</MenuItem>
+                <MenuItem value="UNPAID">{t('leaveRequests.unpaidLeave')}</MenuItem>
+                <MenuItem value="BEREAVEMENT">{t('leaveRequests.bereavementLeave')}</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              size="small"
+              startIcon={<RefreshIcon />}
+              onClick={() => {
+                setStatusFilter('ALL')
+                setLeaveTypeFilter('ALL')
+                setSearchTerm('')
+              }}
+              sx={{ 
+                borderRadius: 2,
+                borderColor: '#667eea',
+                color: '#667eea',
+                '&:hover': {
+                  borderColor: '#764ba2',
+                  background: 'rgba(102, 126, 234, 0.08)',
+                }
+              }}
+            >
+              {t('common.reset')}
+            </Button>
+          </Grid>
+        </Grid>
+      </Card>
 
       {/* Calendar View */}
       {viewMode === 'calendar' ? (
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Paper sx={{ p: 3 }}>
+            <Card
+              sx={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                transition: 'all 0.3s ease',
+                p: 3
+              }}
+            >
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <CalendarIcon sx={{ mr: 1, color: 'primary.main' }} />
-                    <Typography variant="h5">
+                    <CalendarIcon sx={{ mr: 1, color: '#667eea' }} />
+                    <Typography 
+                      variant="h5"
+                      sx={{
+                        fontWeight: 700,
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text'
+                      }}
+                    >
                       {t('leaveRequests.leaveCalendarMonthlySummary')}
                     </Typography>
                   </Box>
@@ -1612,7 +2092,7 @@ const LeaveRequests = () => {
                   {renderCustomCalendar()}
                 </Box>
               </Box>
-            </Paper>
+            </Card>
           </Grid>
         </Grid>
       ) : (
@@ -1620,10 +2100,34 @@ const LeaveRequests = () => {
         <Grid container spacing={3}>
           <Grid item xs={12}>
             {pendingRequests.length > 0 && (
-              <Paper sx={{ p: 3, mb: 3, bgcolor: 'warning.light', border: '2px solid', borderColor: 'warning.main' }}>
+              <Card
+                sx={{
+                  p: 3,
+                  mb: 3,
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  backdropFilter: 'blur(20px)',
+                  borderRadius: 3,
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <PendingIcon sx={{ mr: 1, color: 'warning.dark' }} />
-                  <Typography variant="h6" color="warning.dark">
+                  <PendingIcon sx={{ mr: 1, color: '#ff9800' }} />
+                  <Typography 
+                    variant="h6"
+                    sx={{
+                      fontWeight: 700,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text'
+                    }}
+                  >
                     {t('leaveRequests.pendingApproval', { count: pendingRequests.length })}
                   </Typography>
                 </Box>
@@ -1632,7 +2136,7 @@ const LeaveRequests = () => {
                 </Typography>
                 <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
                   {pendingRequests.map((request) => (
-                    <Card key={request.id} sx={{ mb: 2, border: '1px solid', borderColor: 'warning.main' }}>
+                    <Card key={`pending-card-${languageKey}-${request.id}`} sx={{ mb: 2, border: '1px solid', borderColor: 'warning.main' }}>
                       <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <Box sx={{ flex: 1 }}>
@@ -1640,7 +2144,8 @@ const LeaveRequests = () => {
                               {getEmployeeName(request)}
                             </Typography>
                             <Chip
-                              label={request.leaveType}
+                              key={`leave-type-pending-${languageKey}-${request.id}-${getLeaveTypeLabel(request.leaveType)}`}
+                              label={getLeaveTypeLabel(request.leaveType)}
                               color={getLeaveTypeColor(request.leaveType)}
                               size="small"
                               sx={{ mb: 1 }}
@@ -1659,26 +2164,63 @@ const LeaveRequests = () => {
                           </Box>
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                             <Button
+                              key={`approve-pending-${languageKey}-${request.id}`}
                               size="small"
                               variant="contained"
-                              color="success"
                               onClick={() => handleApproveClick(request)}
+                              sx={{
+                                borderRadius: 2,
+                                background: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)',
+                                boxShadow: '0 4px 16px rgba(76, 175, 80, 0.3)',
+                                fontWeight: 600,
+                                '&:hover': {
+                                  background: 'linear-gradient(135deg, #388e3c 0%, #4caf50 100%)',
+                                  boxShadow: '0 6px 20px rgba(76, 175, 80, 0.4)',
+                                  transform: 'translateY(-2px)'
+                                },
+                                transition: 'all 0.2s ease'
+                              }}
                             >
                               {t('leaveRequests.approve')}
                             </Button>
                             <Button
+                              key={`reject-pending-${languageKey}-${request.id}`}
                               size="small"
                               variant="contained"
-                              color="error"
                               onClick={() => handleRejectClick(request)}
+                              sx={{
+                                borderRadius: 2,
+                                background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)',
+                                boxShadow: '0 4px 16px rgba(244, 67, 54, 0.3)',
+                                fontWeight: 600,
+                                '&:hover': {
+                                  background: 'linear-gradient(135deg, #d32f2f 0%, #f44336 100%)',
+                                  boxShadow: '0 6px 20px rgba(244, 67, 54, 0.4)',
+                                  transform: 'translateY(-2px)'
+                                },
+                                transition: 'all 0.2s ease'
+                              }}
                             >
                               {t('leaveRequests.reject')}
                             </Button>
                             <Button
+                              key={`edit-pending-${languageKey}-${request.id}`}
                               size="small"
                               variant="outlined"
                               startIcon={<EditIcon />}
                               onClick={() => handleEditClick(request)}
+                              sx={{
+                                borderRadius: 2,
+                                borderColor: '#667eea',
+                                color: '#667eea',
+                                fontWeight: 500,
+                                '&:hover': {
+                                  borderColor: '#764ba2',
+                                  background: 'rgba(102, 126, 234, 0.08)',
+                                  transform: 'translateY(-1px)'
+                                },
+                                transition: 'all 0.2s ease'
+                              }}
                             >
                               {t('common.edit')}
                             </Button>
@@ -1688,13 +2230,32 @@ const LeaveRequests = () => {
                     </Card>
                   ))}
                 </Box>
-              </Paper>
+              </Card>
             )}
 
-            <Paper sx={{ p: 3 }}>
+            <Card
+              sx={{
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                transition: 'all 0.3s ease',
+                p: 3
+              }}
+            >
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <EventNoteIcon sx={{ mr: 1, color: 'primary.main' }} />
-                <Typography variant="h6">
+                <EventNoteIcon sx={{ mr: 1, color: '#667eea' }} />
+                <Typography 
+                  variant="h6"
+                  sx={{
+                    fontWeight: 600,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                  }}
+                >
                   {t('leaveRequests.allLeaveRequests')}
                 </Typography>
               </Box>
@@ -1711,8 +2272,11 @@ const LeaveRequests = () => {
                 </Box>
               ) : (
                 <Box sx={{ maxHeight: 600, overflow: 'auto' }}>
-                  {filteredRequests.map((request) => (
-                    <Card key={request.id} sx={{ mb: 2, border: '1px solid', borderColor: 'grey.200' }}>
+                  {filteredRequests.map((request) => {
+                    const statusLabel = getStatusLabel(request.status)
+                    const leaveTypeLabel = getLeaveTypeLabel(request.leaveType)
+                    return (
+                    <Card key={`request-card-${languageKey}-${request.id}`} sx={{ mb: 2, border: '1px solid', borderColor: 'grey.200' }}>
                       <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                           <Box sx={{ flex: 1 }}>
@@ -1720,7 +2284,8 @@ const LeaveRequests = () => {
                               {getEmployeeName(request)}
                             </Typography>
                             <Chip
-                              label={request.leaveType}
+                              key={`leave-type-list-${languageKey}-${request.id}-${leaveTypeLabel}`}
+                              label={leaveTypeLabel}
                               color={getLeaveTypeColor(request.leaveType)}
                               size="small"
                               sx={{ mb: 1 }}
@@ -1744,58 +2309,137 @@ const LeaveRequests = () => {
                           </Box>
                           <Box sx={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 1 }}>
                             <Chip
+                              key={`status-${languageKey}-${request.id}-${statusLabel}`}
                               icon={getStatusIcon(request.status)}
-                              label={request.status}
-                              color={getStatusColor(request.status)}
+                              label={statusLabel}
                               size="small"
+                              sx={getStatusChipStyles(request.status)}
                             />
                             {request.status === 'PENDING' && (
                               <>
                                 <Button
+                                  key={`approve-${languageKey}-${request.id}`}
                                   size="small"
                                   variant="contained"
-                                  color="success"
                                   onClick={() => handleApproveClick(request)}
-                                  sx={{ mb: 0.5, width: '100%' }}
+                                  sx={{
+                                    mb: 0.5,
+                                    width: '100%',
+                                    borderRadius: 2,
+                                    background: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)',
+                                    boxShadow: '0 4px 16px rgba(76, 175, 80, 0.3)',
+                                    fontWeight: 600,
+                                    '&:hover': {
+                                      background: 'linear-gradient(135deg, #388e3c 0%, #4caf50 100%)',
+                                      boxShadow: '0 6px 20px rgba(76, 175, 80, 0.4)',
+                                      transform: 'translateY(-2px)'
+                                    },
+                                    transition: 'all 0.2s ease'
+                                  }}
                                 >
-                                  Approve
+                                  {t('leaveRequests.approve')}
                                 </Button>
                                 <Button
+                                  key={`reject-${languageKey}-${request.id}`}
                                   size="small"
                                   variant="contained"
-                                  color="error"
                                   onClick={() => handleRejectClick(request)}
-                                  sx={{ mb: 0.5, width: '100%' }}
+                                  sx={{
+                                    mb: 0.5,
+                                    width: '100%',
+                                    borderRadius: 2,
+                                    background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)',
+                                    boxShadow: '0 4px 16px rgba(244, 67, 54, 0.3)',
+                                    fontWeight: 600,
+                                    '&:hover': {
+                                      background: 'linear-gradient(135deg, #d32f2f 0%, #f44336 100%)',
+                                      boxShadow: '0 6px 20px rgba(244, 67, 54, 0.4)',
+                                      transform: 'translateY(-2px)'
+                                    },
+                                    transition: 'all 0.2s ease'
+                                  }}
                                 >
-                                  Reject
+                                  {t('leaveRequests.reject')}
                                 </Button>
                               </>
                             )}
                             <Button
+                              key={`edit-${languageKey}-${request.id}`}
                               size="small"
                               variant="outlined"
                               startIcon={<EditIcon />}
                               onClick={() => handleEditClick(request)}
-                              sx={{ width: '100%' }}
+                              sx={{
+                                width: '100%',
+                                borderRadius: 2,
+                                borderColor: '#667eea',
+                                color: '#667eea',
+                                fontWeight: 500,
+                                '&:hover': {
+                                  borderColor: '#764ba2',
+                                  background: 'rgba(102, 126, 234, 0.08)',
+                                  transform: 'translateY(-1px)'
+                                },
+                                transition: 'all 0.2s ease'
+                              }}
                             >
-                              Edit
+                              {t('common.edit')}
                             </Button>
                           </Box>
                         </Box>
                       </CardContent>
                     </Card>
-                  ))}
+                    )
+                  })}
                 </Box>
               )}
-            </Paper>
+            </Card>
           </Grid>
         </Grid>
       )}
 
       {/* Dialogs - Keep existing implementation */}
       {/* Create Leave Request Dialog */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{isAdmin ? t('leaveRequests.createLeaveRequest') : t('leaveRequests.requestLeave')}</DialogTitle>
+      <Dialog 
+        open={openDialog} 
+        onClose={() => setOpenDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+              opacity: 0.8
+            }
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            pb: 2
+          }}
+        >
+          {isAdmin ? t('leaveRequests.createLeaveRequest') : t('leaveRequests.requestLeave')}
+        </DialogTitle>
         <DialogContent>
           {isAdmin && (
             <FormControl fullWidth margin="normal" required>
@@ -1824,10 +2468,12 @@ const LeaveRequests = () => {
             >
               <MenuItem value="ANNUAL">{t('leaveRequests.annualLeave')}</MenuItem>
               <MenuItem value="SICK">{t('leaveRequests.sickLeave')}</MenuItem>
-              <MenuItem value="UNPAID">{t('leaveRequests.unpaidLeave')}</MenuItem>
+              <MenuItem value="EMERGENCY">{t('leaveRequests.emergencyLeave')}</MenuItem>
+              <MenuItem value="PERSONAL">{t('leaveRequests.personalLeave')}</MenuItem>
               <MenuItem value="MATERNITY">{t('leaveRequests.maternityLeave')}</MenuItem>
               <MenuItem value="PATERNITY">{t('leaveRequests.paternityLeave')}</MenuItem>
-              <MenuItem value="PERSONAL">{t('leaveRequests.personalLeave')}</MenuItem>
+              <MenuItem value="UNPAID">{t('leaveRequests.unpaidLeave')}</MenuItem>
+              <MenuItem value="BEREAVEMENT">{t('leaveRequests.bereavementLeave')}</MenuItem>
             </Select>
           </FormControl>
 
@@ -1850,13 +2496,28 @@ const LeaveRequests = () => {
             InputLabelProps={{ shrink: true }}
             margin="normal"
             inputProps={{ min: newRequest.startDate }}
+            error={newRequest.startDate && newRequest.endDate && new Date(newRequest.endDate) < new Date(newRequest.startDate)}
+            helperText={newRequest.startDate && newRequest.endDate && new Date(newRequest.endDate) < new Date(newRequest.startDate) ? t('leaveRequests.endDateMustBeAfterStartDate') : ''}
           />
 
-          {newRequest.startDate && newRequest.endDate && (
-            <Alert severity="info" sx={{ mt: 2 }}>
-              {t('leaveRequests.totalDays')}: {calculateDays()} {t('leaveRequests.day', { count: calculateDays() })}
-            </Alert>
-          )}
+          {newRequest.startDate && newRequest.endDate && (() => {
+            const totalDays = calculateDays()
+            const isEndBeforeStart = new Date(newRequest.endDate) < new Date(newRequest.startDate)
+            return (
+              <>
+                {isEndBeforeStart && (
+                  <Alert severity="error" sx={{ mt: 2 }}>
+                    {t('leaveRequests.endDateMustBeAfterStartDate')}
+                  </Alert>
+                )}
+                {!isEndBeforeStart && (
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    {t('leaveRequests.totalDays')}: {totalDays} {t('leaveRequests.day', { count: totalDays })}
+                  </Alert>
+                )}
+              </>
+            )
+          })()}
 
           <TextField
             fullWidth
@@ -1873,7 +2534,21 @@ const LeaveRequests = () => {
           <Button
             onClick={handleCreateRequest}
             variant="contained"
-            disabled={!newRequest.startDate || !newRequest.endDate || (isAdmin && !newRequest.employeeId)}
+            disabled={!newRequest.startDate || !newRequest.endDate || (isAdmin && !newRequest.employeeId) || (newRequest.startDate && newRequest.endDate && new Date(newRequest.endDate) < new Date(newRequest.startDate))}
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                transform: 'translateY(-2px)'
+              },
+              '&:disabled': {
+                background: 'rgba(0, 0, 0, 0.12)',
+                color: 'rgba(0, 0, 0, 0.26)'
+              }
+            }}
           >
             {isAdmin ? t('leaveRequests.createRequest') : t('leaveRequests.submitRequest')}
           </Button>
@@ -1881,10 +2556,64 @@ const LeaveRequests = () => {
       </Dialog>
 
       {/* Edit, Approve, Reject Dialogs - Keep existing */}
-      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{t('leaveRequests.editLeaveRequest')}</DialogTitle>
+      <Dialog 
+        open={openEditDialog} 
+        onClose={() => setOpenEditDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+              opacity: 0.8
+            }
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            pb: 2
+          }}
+        >
+          {t('leaveRequests.editLeaveRequest')}
+        </DialogTitle>
         <DialogContent>
-          <FormControl fullWidth margin="normal">
+          <FormControl 
+            fullWidth 
+            margin="normal"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                background: 'rgba(255, 255, 255, 0.9)',
+                '&:hover': {
+                  background: 'rgba(255, 255, 255, 0.95)',
+                },
+                '&.Mui-focused': {
+                  background: 'rgba(255, 255, 255, 1)',
+                  boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                }
+              }
+            }}
+          >
             <InputLabel>{t('leaveRequests.leaveType')}</InputLabel>
             <Select
               value={editRequest.leaveType}
@@ -1893,10 +2622,12 @@ const LeaveRequests = () => {
             >
               <MenuItem value="ANNUAL">{t('leaveRequests.annualLeave')}</MenuItem>
               <MenuItem value="SICK">{t('leaveRequests.sickLeave')}</MenuItem>
-              <MenuItem value="UNPAID">{t('leaveRequests.unpaidLeave')}</MenuItem>
+              <MenuItem value="EMERGENCY">{t('leaveRequests.emergencyLeave')}</MenuItem>
+              <MenuItem value="PERSONAL">{t('leaveRequests.personalLeave')}</MenuItem>
               <MenuItem value="MATERNITY">{t('leaveRequests.maternityLeave')}</MenuItem>
               <MenuItem value="PATERNITY">{t('leaveRequests.paternityLeave')}</MenuItem>
-              <MenuItem value="PERSONAL">{t('leaveRequests.personalLeave')}</MenuItem>
+              <MenuItem value="UNPAID">{t('leaveRequests.unpaidLeave')}</MenuItem>
+              <MenuItem value="BEREAVEMENT">{t('leaveRequests.bereavementLeave')}</MenuItem>
             </Select>
           </FormControl>
 
@@ -1908,6 +2639,19 @@ const LeaveRequests = () => {
             onChange={(e) => setEditRequest({ ...editRequest, startDate: e.target.value })}
             InputLabelProps={{ shrink: true }}
             margin="normal"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                background: 'rgba(255, 255, 255, 0.9)',
+                '&:hover': {
+                  background: 'rgba(255, 255, 255, 0.95)',
+                },
+                '&.Mui-focused': {
+                  background: 'rgba(255, 255, 255, 1)',
+                  boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                }
+              }
+            }}
           />
 
           <TextField
@@ -1919,6 +2663,21 @@ const LeaveRequests = () => {
             InputLabelProps={{ shrink: true }}
             margin="normal"
             inputProps={{ min: editRequest.startDate }}
+            error={editRequest.startDate && editRequest.endDate && new Date(editRequest.endDate) < new Date(editRequest.startDate)}
+            helperText={editRequest.startDate && editRequest.endDate && new Date(editRequest.endDate) < new Date(editRequest.startDate) ? t('leaveRequests.endDateMustBeAfterStartDate') : ''}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                background: 'rgba(255, 255, 255, 0.9)',
+                '&:hover': {
+                  background: 'rgba(255, 255, 255, 0.95)',
+                },
+                '&.Mui-focused': {
+                  background: 'rgba(255, 255, 255, 1)',
+                  boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                }
+              }
+            }}
           />
 
           <TextField
@@ -1929,6 +2688,19 @@ const LeaveRequests = () => {
             multiline
             rows={3}
             margin="normal"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                background: 'rgba(255, 255, 255, 0.9)',
+                '&:hover': {
+                  background: 'rgba(255, 255, 255, 0.95)',
+                },
+                '&.Mui-focused': {
+                  background: 'rgba(255, 255, 255, 1)',
+                  boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                }
+              }
+            }}
           />
 
           <TextField
@@ -1940,22 +2712,93 @@ const LeaveRequests = () => {
             rows={2}
             margin="normal"
             helperText={t('leaveRequests.internalNotesVisibleOnlyToHRAdmin')}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                background: 'rgba(255, 255, 255, 0.9)',
+                '&:hover': {
+                  background: 'rgba(255, 255, 255, 0.95)',
+                },
+                '&.Mui-focused': {
+                  background: 'rgba(255, 255, 255, 1)',
+                  boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)',
+                }
+              }
+            }}
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenEditDialog(false)}>{t('common.cancel')}</Button>
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button 
+            onClick={() => setOpenEditDialog(false)}
+            sx={{ borderRadius: 2 }}
+          >
+            {t('common.cancel')}
+          </Button>
           <Button
             onClick={handleUpdateRequest}
             variant="contained"
-            disabled={!editRequest.startDate || !editRequest.endDate}
+            disabled={!editRequest.startDate || !editRequest.endDate || (editRequest.startDate && editRequest.endDate && new Date(editRequest.endDate) < new Date(editRequest.startDate))}
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                transform: 'translateY(-2px)'
+              },
+              '&:disabled': {
+                background: 'rgba(0, 0, 0, 0.12)',
+                color: 'rgba(0, 0, 0, 0.26)'
+              },
+              transition: 'all 0.2s ease'
+            }}
           >
             {t('leaveRequests.updateRequest')}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={openApproveDialog} onClose={() => setOpenApproveDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{t('leaveRequests.approveLeaveRequest')}</DialogTitle>
+      <Dialog 
+        open={openApproveDialog} 
+        onClose={() => setOpenApproveDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #4caf50 0%, #388e3c 100%)',
+              opacity: 0.8
+            }
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            pb: 2
+          }}
+        >
+          {t('leaveRequests.approveLeaveRequest')}
+        </DialogTitle>
         <DialogContent>
           {selectedRequest && (
             <Box sx={{ mb: 2 }}>
@@ -1963,7 +2806,7 @@ const LeaveRequests = () => {
                 {t('employees.title')}: {getEmployeeName(selectedRequest)}
               </Typography>
               <Typography variant="body2" color="textSecondary" gutterBottom>
-                {t('leaveRequests.leaveType')}: {selectedRequest.leaveType}
+                {t('leaveRequests.leaveType')}: {getLeaveTypeLabel(selectedRequest.leaveType)}
               </Typography>
               <Typography variant="body2" color="textSecondary" gutterBottom>
                 {t('leaveRequests.dates')}: {new Date(selectedRequest.startDate).toLocaleDateString()} - {new Date(selectedRequest.endDate).toLocaleDateString()}
@@ -1982,22 +2825,86 @@ const LeaveRequests = () => {
             rows={3}
             margin="normal"
             helperText={t('leaveRequests.addAnyNotesAboutThisApproval')}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                background: 'rgba(255, 255, 255, 0.9)',
+                '&:hover': {
+                  background: 'rgba(255, 255, 255, 0.95)',
+                },
+                '&.Mui-focused': {
+                  background: 'rgba(255, 255, 255, 1)',
+                  boxShadow: '0 0 0 2px rgba(76, 175, 80, 0.2)',
+                }
+              }
+            }}
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenApproveDialog(false)}>{t('common.cancel')}</Button>
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button 
+            onClick={() => setOpenApproveDialog(false)}
+            sx={{ borderRadius: 2 }}
+          >
+            {t('common.cancel')}
+          </Button>
           <Button
             onClick={() => selectedRequest && handleApprove(selectedRequest.id)}
             variant="contained"
-            color="success"
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)',
+              boxShadow: '0 4px 16px rgba(76, 175, 80, 0.3)',
+              fontWeight: 600,
+              '&:hover': {
+                background: 'linear-gradient(135deg, #388e3c 0%, #4caf50 100%)',
+                boxShadow: '0 6px 20px rgba(76, 175, 80, 0.4)',
+                transform: 'translateY(-2px)'
+              },
+              transition: 'all 0.2s ease'
+            }}
           >
             {t('leaveRequests.approve')}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={openRejectDialog} onClose={() => setOpenRejectDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{t('leaveRequests.rejectLeaveRequest')}</DialogTitle>
+      <Dialog 
+        open={openRejectDialog} 
+        onClose={() => setOpenRejectDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #f44336 0%, #d32f2f 100%)',
+              opacity: 0.8
+            }
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            color: '#f44336',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            pb: 2
+          }}
+        >
+          {t('leaveRequests.rejectLeaveRequest')}
+        </DialogTitle>
         <DialogContent>
           {selectedRequest && (
             <Box sx={{ mb: 2 }}>
@@ -2005,7 +2912,7 @@ const LeaveRequests = () => {
                 {t('employees.title')}: {getEmployeeName(selectedRequest)}
               </Typography>
               <Typography variant="body2" color="textSecondary" gutterBottom>
-                {t('leaveRequests.leaveType')}: {selectedRequest.leaveType}
+                {t('leaveRequests.leaveType')}: {getLeaveTypeLabel(selectedRequest.leaveType)}
               </Typography>
               <Typography variant="body2" color="textSecondary" gutterBottom>
                 {t('leaveRequests.dates')}: {new Date(selectedRequest.startDate).toLocaleDateString()} - {new Date(selectedRequest.endDate).toLocaleDateString()}
@@ -2024,19 +2931,49 @@ const LeaveRequests = () => {
             rows={3}
             margin="normal"
             helperText={t('leaveRequests.addReasonForRejection')}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                background: 'rgba(255, 255, 255, 0.9)',
+                '&:hover': {
+                  background: 'rgba(255, 255, 255, 0.95)',
+                },
+                '&.Mui-focused': {
+                  background: 'rgba(255, 255, 255, 1)',
+                  boxShadow: '0 0 0 2px rgba(244, 67, 54, 0.2)',
+                }
+              }
+            }}
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenRejectDialog(false)}>{t('common.cancel')}</Button>
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button 
+            onClick={() => setOpenRejectDialog(false)}
+            sx={{ borderRadius: 2 }}
+          >
+            {t('common.cancel')}
+          </Button>
           <Button
             onClick={() => selectedRequest && handleReject(selectedRequest.id)}
             variant="contained"
-            color="error"
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)',
+              boxShadow: '0 4px 16px rgba(244, 67, 54, 0.3)',
+              fontWeight: 600,
+              '&:hover': {
+                background: 'linear-gradient(135deg, #d32f2f 0%, #f44336 100%)',
+                boxShadow: '0 6px 20px rgba(244, 67, 54, 0.4)',
+                transform: 'translateY(-2px)'
+              },
+              transition: 'all 0.2s ease'
+            }}
           >
             {t('leaveRequests.reject')}
           </Button>
         </DialogActions>
       </Dialog>
+      </Box>
     </Box>
   )
 }

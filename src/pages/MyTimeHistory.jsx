@@ -108,9 +108,9 @@ const MyTimeHistory = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box>
       <Typography variant="h4" gutterBottom>
-        My Time History
+        {t('pageTitles.myTimeHistory')}
       </Typography>
 
       {/* Stats Cards */}

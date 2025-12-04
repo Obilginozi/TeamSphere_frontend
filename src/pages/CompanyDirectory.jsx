@@ -75,9 +75,9 @@ const CompanyDirectory = () => {
   )
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box>
       <Typography variant="h4" gutterBottom>
-        Company Directory
+        {t('pageTitles.companyDirectory')}
       </Typography>
 
       {/* Company Information Card */}

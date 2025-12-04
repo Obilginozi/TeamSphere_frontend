@@ -14,12 +14,18 @@ i18n
     fallbackLng: 'en',
     returnEmptyString: false,
     returnNull: false,
+    keySeparator: '.',
+    nsSeparator: false,
+    defaultNS: 'translation',
     interpolation: {
       escapeValue: false
     },
     react: {
-      useSuspense: false
-    }
+      useSuspense: false,
+      bindI18n: 'languageChanged loaded',
+      bindI18nStore: 'added removed'
+    },
+    debug: false
   })
 
 export default i18n

@@ -65,7 +65,7 @@ const BulkEmployeeImport = () => {
     if (!file) return;
 
     if (!file.name.match(/\.(xlsx|xls)$/)) {
-      setError('Please upload an Excel file (.xlsx or .xls)');
+      setError(t('bulkImport.pleaseUploadExcelFile'));
       return;
     }
 
@@ -82,7 +82,7 @@ const BulkEmployeeImport = () => {
         });
 
         if (jsonData.length === 0) {
-          setError('The Excel file is empty or has no data');
+          setError(t('bulkImport.excelFileEmpty'));
           return;
         }
 
@@ -120,7 +120,7 @@ const BulkEmployeeImport = () => {
         setActiveStep(1);
         setError(null);
       } catch (err) {
-        setError('Error reading Excel file: ' + err.message);
+        setError(t('bulkImport.errorReadingExcelFile', { message: err.message }));
       }
     };
     reader.readAsArrayBuffer(file);
@@ -231,21 +231,83 @@ const BulkEmployeeImport = () => {
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
-          <Card>
+          <Card
+            sx={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 3,
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
             <CardContent>
-              <Typography variant="h6" gutterBottom>Required Fields</Typography>
+              <Typography 
+                variant="h6" 
+                gutterBottom
+                sx={{
+                  fontWeight: 600,
+                  mb: 2
+                }}
+              >
+                Required Fields
+              </Typography>
               {requiredFields.map(field => (
-                <Chip key={field} label={field} color="primary" sx={{ m: 0.5 }} />
+                <Chip 
+                  key={field} 
+                  label={field} 
+                  color="primary" 
+                  sx={{ 
+                    m: 0.5,
+                    borderRadius: 2,
+                    fontWeight: 500
+                  }} 
+                />
               ))}
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} md={6}>
-          <Card>
+          <Card
+            sx={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 3,
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
             <CardContent>
-              <Typography variant="h6" gutterBottom>Optional Fields</Typography>
+              <Typography 
+                variant="h6" 
+                gutterBottom
+                sx={{
+                  fontWeight: 600,
+                  mb: 2
+                }}
+              >
+                Optional Fields
+              </Typography>
               {optionalFields.map(field => (
-                <Chip key={field} label={field} variant="outlined" sx={{ m: 0.5 }} />
+                <Chip 
+                  key={field} 
+                  label={field} 
+                  variant="outlined" 
+                  sx={{ 
+                    m: 0.5,
+                    borderRadius: 2,
+                    fontWeight: 500
+                  }} 
+                />
               ))}
             </CardContent>
           </Card>
@@ -257,7 +319,7 @@ const BulkEmployeeImport = () => {
           variant="outlined"
           startIcon={<DownloadIcon />}
           onClick={downloadTemplate}
-          sx={{ mr: 2 }}
+          sx={{ mr: 2, borderRadius: 2 }}
         >
           Download Template
         </Button>
@@ -274,6 +336,16 @@ const BulkEmployeeImport = () => {
           variant="contained"
           startIcon={<CloudUploadIcon />}
           onClick={() => fileInputRef.current?.click()}
+          sx={{
+            borderRadius: 2,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+              boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+              transform: 'translateY(-2px)'
+            }
+          }}
         >
           Choose File
         </Button>
@@ -322,6 +394,16 @@ const BulkEmployeeImport = () => {
         onClick={validateData}
         disabled={loading}
         startIcon={loading ? <CircularProgress size={20} /> : <CheckCircleIcon />}
+        sx={{
+          borderRadius: 2,
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+          '&:hover': {
+            background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+            boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+            transform: 'translateY(-2px)'
+          }
+        }}
       >
         {loading ? t('bulkImport.validating') : t('bulkImport.validateData')}
       </Button>
@@ -390,6 +472,16 @@ const BulkEmployeeImport = () => {
         onClick={importEmployees}
         disabled={loading || validationResults?.errorCount > 0}
         startIcon={loading ? <CircularProgress size={20} /> : <CheckCircleIcon />}
+        sx={{
+          borderRadius: 2,
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+          '&:hover': {
+            background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+            boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+            transform: 'translateY(-2px)'
+          }
+        }}
       >
         {loading ? 'Importing...' : 'Import Employees'}
       </Button>
@@ -451,10 +543,27 @@ const BulkEmployeeImport = () => {
       )}
 
       <Box sx={{ display: 'flex', gap: 2 }}>
-        <Button variant="contained" onClick={resetImport}>
+        <Button 
+          variant="contained" 
+          onClick={resetImport}
+          sx={{
+            borderRadius: 2,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+              boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+              transform: 'translateY(-2px)'
+            }
+          }}
+        >
           Import More Employees
         </Button>
-        <Button variant="outlined" onClick={() => window.location.href = '/employees'}>
+        <Button 
+          variant="outlined" 
+          onClick={() => window.location.href = '/employees'}
+          sx={{ borderRadius: 2 }}
+        >
           View Employees
         </Button>
       </Box>
@@ -472,18 +581,77 @@ const BulkEmployeeImport = () => {
   };
 
   return (
-    <Box sx={{ maxWidth: 1000, mx: 'auto', p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Bulk Employee Import
+    <Box
+      sx={{
+        minHeight: 'calc(100vh - 64px)',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        position: 'relative',
+        margin: -3,
+        padding: 3,
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }
+      }}
+    >
+      <Box sx={{ position: 'relative', zIndex: 1, maxWidth: 1000, mx: 'auto' }}>
+        <Box display="flex" alignItems="center" gap={2} mb={3}>
+          <Box
+            sx={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)'
+            }}
+          >
+            <CloudUploadIcon sx={{ fontSize: 28, color: 'white' }} />
+          </Box>
+          <Box>
+            <Typography 
+              variant="h4"
+              sx={{
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}
+            >
+        {t('pageTitles.bulkEmployeeImport')}
       </Typography>
-      
-      <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+          </Box>
+        </Box>
+        
+        <Paper
+          sx={{
+            p: 3,
+            mb: 4,
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+          }}
+        >
+          <Stepper activeStep={activeStep}>
         {steps.map((label) => (
           <Step key={label}>
             <StepLabel>{label}</StepLabel>
           </Step>
         ))}
       </Stepper>
+        </Paper>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
@@ -497,9 +665,24 @@ const BulkEmployeeImport = () => {
         </Alert>
       )}
 
-      <Paper sx={{ p: 3 }}>
+        <Paper 
+          sx={{ 
+            p: 3,
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+              transform: 'translateY(-2px)'
+            }
+          }}
+        >
         {getStepContent(activeStep)}
       </Paper>
+      </Box>
     </Box>
   );
 };

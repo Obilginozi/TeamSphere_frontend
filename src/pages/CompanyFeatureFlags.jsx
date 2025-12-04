@@ -22,7 +22,9 @@ import {
   Autocomplete,
   IconButton,
   Tooltip,
-  Collapse
+  Collapse,
+  Avatar,
+  Grow
 } from '@mui/material'
 import { 
   Save, 
@@ -37,6 +39,7 @@ import {
   Business
 } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
+import { useLanguage } from '../contexts/LanguageContext'
 import { getCompanyFeatureFlags, updateCompanyFeatureFlags } from '../services/featureFlags'
 import api from '../services/api'
 
@@ -142,6 +145,7 @@ const pageGroups = [
 
 const CompanyFeatureFlags = () => {
   const { user } = useAuth()
+  const { t } = useLanguage()
   const [companies, setCompanies] = useState([])
   const [selectedCompanyId, setSelectedCompanyId] = useState(null)
   const [selectedCompany, setSelectedCompany] = useState(null)
@@ -159,7 +163,7 @@ const CompanyFeatureFlags = () => {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <Alert severity="error">
-          Access Denied. This page is only available for administrators.
+          {t('companyFeatureFlags.accessDenied')}
         </Alert>
       </Box>
     )
@@ -329,15 +333,132 @@ const CompanyFeatureFlags = () => {
 
   const stats = getFeatureStats()
 
+  const StatCard = ({ title, value, icon, color, subtitle, index = 0 }) => (
+    <Grow in timeout={600 + (index * 100)}>
+      <Card 
+        sx={{ 
+          height: '100%',
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: 4,
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+          transition: 'all 0.3s ease',
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '4px',
+            background: `linear-gradient(90deg, ${color} 0%, ${color}80 100%)`,
+            opacity: 0.8
+          },
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.4)',
+            '&::before': {
+              opacity: 1
+            }
+          }
+        }}
+      >
+        <CardContent sx={{ p: 3 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Box flex={1}>
+              <Typography 
+                color="textSecondary" 
+                gutterBottom 
+                variant="body2"
+                sx={{ fontWeight: 500, mb: 1 }}
+              >
+                {title}
+              </Typography>
+              <Typography 
+                variant="h3" 
+                component="div"
+                sx={{ 
+                  fontWeight: 700,
+                  background: `linear-gradient(135deg, ${color} 0%, ${color}80 100%)`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  mb: subtitle ? 0.5 : 0
+                }}
+              >
+                {value}
+              </Typography>
+              {subtitle && (
+                <Typography 
+                  variant="caption" 
+                  color="textSecondary"
+                  sx={{ fontWeight: 500, fontSize: '0.75rem' }}
+                >
+                  {subtitle}
+                </Typography>
+              )}
+            </Box>
+            <Avatar 
+              sx={{ 
+                bgcolor: color, 
+                width: 64, 
+                height: 64,
+                boxShadow: `0 4px 20px ${color}40`,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'scale(1.1) rotate(5deg)'
+                }
+              }}
+            >
+              {icon}
+            </Avatar>
+          </Box>
+        </CardContent>
+      </Card>
+    </Grow>
+  )
+
   return (
-    <Box sx={{ p: 3 }}>
+    <Box
+      sx={{
+        minHeight: 'calc(100vh - 64px)',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        position: 'relative',
+        margin: -3,
+        padding: 3,
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }
+      }}
+    >
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>
-        <Typography variant="h4" gutterBottom>
-            Company Feature Flags Management
+            <Typography 
+              variant="h4" 
+              gutterBottom
+              sx={{
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}
+            >
+            {t('pageTitles.companyFeatureFlags')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Manage which pages and features are visible for each company. Changes are saved to XML files.
+            {t('companyFeatureFlags.managePagesFeatures')}
         </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
@@ -346,6 +467,25 @@ const CompanyFeatureFlags = () => {
             startIcon={<Refresh />}
             onClick={handleRefresh}
             disabled={loading || saving}
+            sx={{
+              borderRadius: 2,
+              borderColor: '#667eea',
+              color: '#667eea',
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(10px)',
+              textTransform: 'none',
+              fontWeight: 600,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                borderColor: '#764ba2',
+                background: 'rgba(102, 126, 234, 0.1)',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)'
+              },
+              '&:disabled': {
+                opacity: 0.5
+              }
+            }}
           >
             Refresh
           </Button>
@@ -355,8 +495,26 @@ const CompanyFeatureFlags = () => {
             startIcon={<Save />}
             onClick={handleSave}
             disabled={saving || !featureFlags || !selectedCompanyId}
+              sx={{
+                borderRadius: 2,
+                background: hasChanges 
+                  ? 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)'
+                  : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: hasChanges
+                    ? 'linear-gradient(135deg, #f57c00 0%, #ff9800 100%)'
+                    : 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                },
+                '&:disabled': {
+                  background: 'rgba(0, 0, 0, 0.12)',
+                  color: 'rgba(0, 0, 0, 0.26)'
+                }
+              }}
           >
-            {saving ? 'Saving to XML...' : hasChanges ? 'Save Changes' : 'Save'}
+            {saving ? t('companyFeatureFlags.savingToXML') : hasChanges ? t('companyFeatureFlags.saveChanges') : t('companyFeatureFlags.save')}
           </Button>
         </Box>
       </Box>
@@ -388,11 +546,18 @@ const CompanyFeatureFlags = () => {
       )}
 
       {user?.role === 'ADMIN' && (
-        <Card sx={{ mb: 3 }}>
+        <Card sx={{ 
+          mb: 3,
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: 3,
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+        }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
               <Business color="primary" />
-              <Typography variant="h6">Select Company</Typography>
+              <Typography variant="h6">{t('companyFeatureFlags.selectCompany')}</Typography>
             </Box>
             <Autocomplete
               options={companies}
@@ -403,8 +568,23 @@ const CompanyFeatureFlags = () => {
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Choose Company"
-                  placeholder="Search and select a company..."
+                  label={t('companyFeatureFlags.chooseCompany')}
+                  placeholder={t('companyFeatureFlags.searchAndSelectCompany')}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        boxShadow: '0 2px 8px rgba(102, 126, 234, 0.15)'
+                      },
+                      '&.Mui-focused': {
+                        background: 'rgba(255, 255, 255, 1)',
+                        boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)'
+                      }
+                    }
+                  }}
                   InputProps={{
                     ...params.InputProps,
                     startAdornment: (
@@ -418,21 +598,24 @@ const CompanyFeatureFlags = () => {
                   }}
                 />
               )}
-              renderOption={(props, option) => (
-                <Box component="li" {...props} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box>
-                    <Typography variant="body1">{option.name}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      ID: {option.id} • {option.email || 'No email'}
-                    </Typography>
+              renderOption={(props, option) => {
+                const { key, ...otherProps } = props
+                return (
+                  <Box component="li" key={key} {...otherProps} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box>
+                      <Typography variant="body1">{option.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        ID: {option.id} • {option.contactEmail || 'No email'}
+                      </Typography>
+                    </Box>
                   </Box>
-                </Box>
-              )}
+                )
+              }}
             />
             {selectedCompany && (
               <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 <Chip label={`Company ID: ${selectedCompany.id}`} size="small" />
-                {selectedCompany.email && <Chip label={selectedCompany.email} size="small" />}
+                {selectedCompany.contactEmail && <Chip label={selectedCompany.contactEmail} size="small" />}
                 {selectedCompany.status && (
                   <Chip 
                     label={selectedCompany.status} 
@@ -447,31 +630,53 @@ const CompanyFeatureFlags = () => {
       )}
 
       {featureFlags && (
-        <Card>
+        <Card sx={{
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: 3,
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+        }}>
           <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-              <Box>
-                <Typography variant="h5" gutterBottom>
-                  {featureFlags.companyName}
-          </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Company ID: {featureFlags.companyId} • XML File: company-{featureFlags.companyId}-features.xml
-          </Typography>
-              </Box>
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                <Chip 
-                  icon={<CheckCircle />} 
-                  label={`${stats.enabled} Enabled`} 
-                  color="success" 
-                  variant="outlined"
-                />
-                <Chip 
-                  icon={<Cancel />} 
-                  label={`${stats.disabled} Disabled`} 
-                  color="error" 
-                  variant="outlined"
-                />
-              </Box>
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h5" gutterBottom>
+                {featureFlags.companyName}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Company ID: {featureFlags.companyId} • XML File: company-{featureFlags.companyId}-features.xml
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6} md={4}>
+                  <StatCard
+                    title="Enabled Features"
+                    value={stats.enabled}
+                    icon={<CheckCircle />}
+                    color="#4caf50"
+                    subtitle={`${stats.total} total`}
+                    index={0}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                  <StatCard
+                    title="Disabled Features"
+                    value={stats.disabled}
+                    icon={<Cancel />}
+                    color="#f44336"
+                    subtitle={`${stats.total} total`}
+                    index={1}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                  <StatCard
+                    title="Total Features"
+                    value={stats.total}
+                    icon={<Business />}
+                    color="#667eea"
+                    subtitle={stats.total > 0 ? `${((stats.enabled / stats.total) * 100).toFixed(1)}% enabled` : 'No features'}
+                    index={2}
+                  />
+                </Grid>
+              </Grid>
             </Box>
 
           <Divider sx={{ mb: 3 }} />
@@ -482,7 +687,22 @@ const CompanyFeatureFlags = () => {
               placeholder="Search features by name or description..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ mb: 3 }}
+              sx={{ 
+                mb: 3,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    boxShadow: '0 2px 8px rgba(102, 126, 234, 0.15)'
+                  },
+                  '&.Mui-focused': {
+                    background: 'rgba(255, 255, 255, 1)',
+                    boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)'
+                  }
+                }
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -515,7 +735,18 @@ const CompanyFeatureFlags = () => {
 
                 return (
                   <Grid item xs={12} key={group.title}>
-                    <Card variant="outlined">
+                    <Card sx={{
+                      background: 'rgba(255, 255, 255, 0.95)',
+                      backdropFilter: 'blur(20px)',
+                      borderRadius: 3,
+                      border: '1px solid rgba(102, 126, 234, 0.2)',
+                      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        boxShadow: '0 8px 24px rgba(102, 126, 234, 0.15)',
+                        transform: 'translateY(-2px)'
+                      }
+                    }}>
                       <CardContent>
                         <Box 
                           sx={{ 
@@ -583,11 +814,18 @@ const CompanyFeatureFlags = () => {
                                   <Paper 
                                     variant="outlined" 
                                     sx={{ 
-                                      p: 2, 
-                                      backgroundColor: isEnabled ? 'action.selected' : 'background.paper',
-                                      borderColor: isEnabled ? 'success.main' : 'divider',
+                                      p: 2,
+                                      borderRadius: 2,
+                                      backgroundColor: isEnabled ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 255, 255, 0.95)',
+                                      backdropFilter: 'blur(10px)',
+                                      borderColor: isEnabled ? '#4caf50' : 'rgba(102, 126, 234, 0.2)',
                                       borderWidth: isEnabled ? 2 : 1,
-                                      transition: 'all 0.2s'
+                                      transition: 'all 0.3s ease',
+                                      '&:hover': {
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.15)',
+                                        borderColor: isEnabled ? '#4caf50' : '#667eea'
+                                      }
                                     }}
                                   >
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
@@ -643,6 +881,7 @@ const CompanyFeatureFlags = () => {
             : 'No feature flags found for your company.'}
         </Alert>
       )}
+      </Box>
     </Box>
   )
 }

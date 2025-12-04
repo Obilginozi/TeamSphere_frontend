@@ -38,7 +38,15 @@ import {
   Assessment,
   MonitorHeart,
   Campaign,
-  MenuBook
+  MenuBook,
+  Schedule,
+  CalendarMonth,
+  Assignment,
+  Inbox,
+  HowToReg,
+  Flag,
+  AccountTree,
+  Build
 } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -71,6 +79,53 @@ const Layout = () => {
   const hasFetchedCompany = useRef(false)
   const lastFetchedCompanyId = useRef(null)
   const lastFetchedLogoUrl = useRef(null)
+
+  // Fetch logo as authenticated blob (defined at component level for reuse)
+  const fetchLogoAsBlob = async (logoUrl) => {
+    // Clean up old object URL
+    setLogoObjectUrl(prevUrl => {
+      if (prevUrl) {
+        URL.revokeObjectURL(prevUrl)
+      }
+      return null
+    })
+    
+    if (!logoUrl) {
+      if (process.env.NODE_ENV === 'development') {
+      }
+      return
+    }
+    
+    // Handle different logo URL formats
+    let urlPath = logoUrl
+    if (!logoUrl.startsWith('uploads/')) {
+      // If logoUrl doesn't start with 'uploads/', try to extract it or use as-is
+      if (logoUrl.includes('uploads/')) {
+        urlPath = logoUrl.substring(logoUrl.indexOf('uploads/'))
+      } else {
+        // Assume it's a filename and prepend the uploads path
+        urlPath = `uploads/companies/${logoUrl}`
+      }
+    }
+    
+    const url = `/companies/logo?path=${encodeURIComponent(urlPath)}`
+    
+    try {
+      const response = await api.get(url, {
+        responseType: 'blob'
+      })
+      if (response.data && response.data.size > 0) {
+        const blob = new Blob([response.data], { type: response.data.type || 'image/png' })
+        const objectUrl = URL.createObjectURL(blob)
+        setLogoObjectUrl(objectUrl)
+        // Update timestamp to force re-render
+        setLogoTimestamp(Date.now())
+      }
+    } catch (fetchError) {
+      console.error('Failed to fetch logo as blob:', fetchError)
+      // Don't set logoObjectUrl, will show app name instead
+    }
+  }
 
   useEffect(() => {
     // Fetch profile picture as authenticated blob
@@ -136,70 +191,9 @@ const Layout = () => {
       fetchProfilePictureAsBlob(user.profilePictureUrl)
     }
     
-    // Fetch logo as authenticated blob
-    const fetchLogoAsBlob = async (logoUrl) => {
-      // Clean up old object URL
-      setLogoObjectUrl(prevUrl => {
-        if (prevUrl) {
-          URL.revokeObjectURL(prevUrl)
-        }
-        return null
-      })
-      
-      if (!logoUrl) {
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('No logo URL provided')
-        }
-        return
-      }
-      
-      // Handle different logo URL formats
-      let urlPath = logoUrl
-      if (!logoUrl.startsWith('uploads/')) {
-        // If logoUrl doesn't start with 'uploads/', try to extract it or use as-is
-        if (logoUrl.includes('uploads/')) {
-          urlPath = logoUrl.substring(logoUrl.indexOf('uploads/'))
-        } else {
-          // Assume it's a filename and prepend the uploads path
-          urlPath = `uploads/companies/${logoUrl}`
-        }
-      }
-      
-      const url = `/companies/logo?path=${encodeURIComponent(urlPath)}`
-      
-      console.log('Fetching logo from:', url, 'Original logoUrl:', logoUrl, 'Processed urlPath:', urlPath)
-      
-      try {
-        const response = await api.get(url, {
-          responseType: 'blob'
-        })
-        if (response.data && response.data.size > 0) {
-          const blob = new Blob([response.data], { type: response.data.type || 'image/png' })
-          const objectUrl = URL.createObjectURL(blob)
-          setLogoObjectUrl(objectUrl)
-          console.log('✅ Logo fetched successfully as blob, size:', response.data.size, 'bytes', 'Object URL:', objectUrl)
-          // Update timestamp to force re-render
-          setLogoTimestamp(Date.now())
-        } else {
-          console.warn('Logo blob is empty or invalid')
-        }
-      } catch (fetchError) {
-        console.error('❌ Failed to fetch logo as blob:', fetchError)
-        if (fetchError.response) {
-          console.error('Response status:', fetchError.response.status)
-          console.error('Response data:', fetchError.response.data)
-        }
-        // Don't set logoObjectUrl, will show app name instead
-      }
-    }
-    
     // Fetch company data with logo
     const fetchCompany = async () => {
       try {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Fetching company data for user role:', user?.role)
-        }
-        
         const response = await api.get('/companies/my-company')
         if (response.data && response.data.data) {
           const companyData = response.data.data
@@ -210,9 +204,6 @@ const Layout = () => {
           if (hasFetchedCompany.current && 
               lastFetchedCompanyId.current === companyId && 
               lastFetchedLogoUrl.current === logoUrl) {
-            if (process.env.NODE_ENV === 'development') {
-              console.log('Company data already fetched, skipping...')
-            }
             return
           }
           
@@ -221,19 +212,10 @@ const Layout = () => {
           lastFetchedCompanyId.current = companyId
           lastFetchedLogoUrl.current = logoUrl
           
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Company data fetched in Layout:', companyData)
-            console.log('Logo URL:', logoUrl)
-            console.log('Company ID:', companyId)
-          }
-          
           // Fetch logo as blob if logoUrl exists
           if (logoUrl) {
             await fetchLogoAsBlob(logoUrl)
           } else {
-            if (process.env.NODE_ENV === 'development') {
-              console.warn('No logo URL in company data')
-            }
             // Clean up old object URL if no logo
             setLogoObjectUrl(prevUrl => {
               if (prevUrl) {
@@ -243,13 +225,14 @@ const Layout = () => {
             })
           }
         } else {
-          console.warn('Unexpected company response structure:', response.data)
         }
       } catch (error) {
         console.error('Failed to fetch company data in Layout:', error)
         if (error.response) {
           console.error('Response status:', error.response.status)
           console.error('Response data:', error.response.data)
+          // If company not found, don't show error in Layout (it's handled in CompanyEdit)
+          // Just clear company data silently
         }
         // Clear company data on error
         setCompanyData(null)
@@ -290,7 +273,7 @@ const Layout = () => {
           // Load admin logo
           const fetchAdminLogo = async () => {
             try {
-              const adminLogoPath = 'uploads/companies/mock_admin_logo.svg'
+              const adminLogoPath = 'uploads/companies/mock_admin_company_logo.svg'
               const url = `/companies/logo?path=${encodeURIComponent(adminLogoPath)}`
               const response = await api.get(url, { responseType: 'blob' })
               if (response.data && response.data.size > 0) {
@@ -305,12 +288,11 @@ const Layout = () => {
           }
           fetchAdminLogo()
         }
-      } else if (user.role === 'HR' || user.role === 'EMPLOYEE') {
-        // HR and Employee users are always tied to a company
+      } else if (user.role === 'HR' || user.role === 'EMPLOYEE' || user.role === 'DEPARTMENT_MANAGER') {
+        // HR, Employee, and Department Manager users are always tied to a company
         // Only fetch if we haven't fetched yet or if user changed
         if (!hasFetchedCompany.current || lastFetchedCompanyId.current === null) {
           if (process.env.NODE_ENV === 'development') {
-            console.log('Fetching company for', user.role, 'user')
           }
           fetchCompany()
         }
@@ -329,7 +311,7 @@ const Layout = () => {
           setLogoTimestamp(Date.now()) // Update timestamp to force logo reload
           fetchCompany()
         } else if (user.role !== 'ADMIN') {
-          // HR and Employee users are always tied to a company
+          // HR, Employee, and Department Manager users are always tied to a company
           setLogoTimestamp(Date.now()) // Update timestamp to force logo reload
           fetchCompany()
         }
@@ -433,7 +415,7 @@ const Layout = () => {
         // Load admin logo
         const fetchAdminLogo = async () => {
           try {
-            const adminLogoPath = 'uploads/companies/mock_admin_logo.svg'
+            const adminLogoPath = 'uploads/companies/mock_admin_company_logo.svg'
             const url = `/companies/logo?path=${encodeURIComponent(adminLogoPath)}`
             const response = await api.get(url, { responseType: 'blob' })
             if (response.data && response.data.size > 0) {
@@ -492,39 +474,50 @@ const Layout = () => {
       path: '/admin-tickets',
       roles: ['ADMIN']
     },
-    { text: t('navigation.companySetup'), icon: <Business />, path: '/company-setup', roles: ['ADMIN'] },
-    { text: t('navigation.companyManagement'), icon: <Business />, path: '/companies', roles: ['ADMIN'] },
-    { text: 'Feature Flags', icon: <Security />, path: '/company-feature-flags', roles: ['ADMIN'] },
+    { text: t('navigation.companySetup'), icon: <Build />, path: '/company-setup', roles: ['ADMIN'] },
+    { text: t('navigation.companyManagement'), icon: <AccountTree />, path: '/companies', roles: ['ADMIN'] },
+    { text: t('common.featureFlags'), icon: <Flag />, path: '/company-feature-flags', roles: ['ADMIN'] },
     { text: t('navigation.switchCompany'), icon: <BusinessCenter />, path: '/company-selector', roles: ['ADMIN'] },
   ]
   
   // Items that require company selection for ADMIN
   const companyDependentItems = [
     { text: t('navigation.employees'), icon: <People />, path: '/employees', roles: ['ADMIN', 'HR'] },
+    { text: t('navigation.shiftManagement') || 'Shift Management', icon: <Schedule />, path: '/shift-management', roles: ['ADMIN', 'HR'] },
     { 
       text: user?.role === 'HR' ? t('navigation.attendanceManagement') : t('navigation.timeLogs'), 
-      icon: <AccessTime />, 
-      path: user?.role === 'HR' ? '/attendance' : '/time-logs' 
+      icon: <HowToReg />, 
+      path: (user?.role === 'HR') ? '/attendance' : '/time-logs',
+      roles: ['ADMIN', 'HR', 'EMPLOYEE', 'DEPARTMENT_MANAGER']
     },
     { text: t('navigation.workdayReports'), icon: <Assessment />, path: '/workday-reports', roles: ['ADMIN', 'HR'] },
-    { text: t('navigation.leaveRequests'), icon: <EventNote />, path: '/leave-requests' },
-    { text: t('navigation.announcements'), icon: <Campaign />, path: '/announcements', roles: ['ADMIN', 'HR'] },
+    { text: t('navigation.leaveRequests'), icon: <EventNote />, path: '/leave-requests', roles: ['ADMIN', 'HR', 'EMPLOYEE'] },
+    { text: t('navigation.companyCalendar') || 'Company Calendar', icon: <CalendarMonth />, path: '/company-calendar', roles: ['ADMIN', 'HR', 'EMPLOYEE', 'DEPARTMENT_MANAGER'] },
+    { text: t('navigation.announcements'), icon: <Campaign />, path: '/announcements', roles: ['ADMIN', 'HR', 'DEPARTMENT_MANAGER'] },
     { 
-      text: t('navigation.tickets'), 
+      text: t('navigation.tickets') || 'Support Tickets', 
       icon: <Support />, 
-      path: '/tickets',
+      path: '/support-tickets',
       roles: ['HR']
     },
     { 
-      text: t('navigation.generalTickets') || 'General Tickets', 
-      icon: <Support />, 
-      path: '/general-tickets',
-      roles: ['HR', 'EMPLOYEE']
+      text: t('navigation.companyTickets') || 'Company Tickets', 
+      icon: <Assignment />, 
+      path: '/company-tickets',
+      roles: ['HR', 'DEPARTMENT_MANAGER']
+    },
+    { 
+      text: t('navigation.myTickets') || 'My Tickets', 
+      icon: <Inbox />, 
+      path: '/employee-tickets',
+      roles: ['EMPLOYEE']
     },
     { text: t('navigation.editCompany'), icon: <Business />, path: '/company-edit', roles: ['HR', 'ADMIN'] },
+    { text: t('navigation.profileApprovals') || 'Profile Approvals', icon: <Person />, path: '/profile-approvals', roles: ['HR', 'ADMIN'] },
     { text: t('navigation.accessControl'), icon: <Security />, path: '/access-control', roles: ['ADMIN', 'HR'] },
     { text: t('navigation.accounting'), icon: <AccountBalance />, path: '/accounting', roles: ['ADMIN', 'HR'] },
-    { text: t('navigation.account'), icon: <Person />, path: '/account' },
+    { text: t('navigation.myAccounting') || t('navigation.accounting'), icon: <AccountBalance />, path: '/employee-accounting', roles: ['EMPLOYEE'] },
+    { text: t('navigation.account'), icon: <Person />, path: '/account', roles: ['ADMIN', 'HR', 'DEPARTMENT_MANAGER'] },
     { text: t('navigation.bulkImport'), icon: <Assessment />, path: '/bulk-import', roles: ['ADMIN', 'HR'] },
   ]
   
@@ -571,98 +564,117 @@ const Layout = () => {
   })
 
   const drawer = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100%', 
+      position: 'relative', 
+      zIndex: 2, 
+      overflowY: 'auto',
+      scrollbarWidth: 'none', // Firefox
+      '&::-webkit-scrollbar': {
+        display: 'none' // Chrome, Safari, Edge
+      }
+    }}>
       <Toolbar sx={{ 
         display: 'flex', 
         flexDirection: drawerOpen ? 'row' : 'column',
         justifyContent: drawerOpen ? 'flex-start' : 'center', 
         alignItems: 'center', 
-        minHeight: '64px !important', 
+        minHeight: '64px !important',
+        height: '64px',
         px: drawerOpen ? 2 : 1,
-        py: drawerOpen ? 0 : 1
+        py: 1,
+        overflow: 'hidden',
+        background: 'transparent',
+        position: 'relative',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
       }}>
-        {drawerOpen ? (
-          <>
-            {((user?.role === 'ADMIN' && !selectedCompanyId && adminLogoUrl) || (companyData?.logoUrl && logoObjectUrl)) ? (
-              <Box
-                component="img"
-                src={user?.role === 'ADMIN' && !selectedCompanyId && adminLogoUrl ? adminLogoUrl : logoObjectUrl}
-                alt={user?.role === 'ADMIN' && !selectedCompanyId ? "Admin Logo" : "Company Logo"}
-                key={user?.role === 'ADMIN' && !selectedCompanyId ? 'admin-logo' : `${companyData?.logoUrl}-${logoTimestamp}`}
-                sx={{
-                  width: '100%',
-                  maxWidth: drawerWidth - 32, // Full width minus padding (16px on each side)
-                  height: 'auto',
-                  maxHeight: 120, // Increased from 50 to allow bigger logo while maintaining aspect ratio
-                  objectFit: 'contain', // Maintains aspect ratio
-                  cursor: 'pointer',
-                  '&:hover': { opacity: 0.8 }
-                }}
-                onClick={() => navigate('/dashboard')}
-                onError={(e) => {
-                  if (process.env.NODE_ENV === 'development') {
-                    console.error('Failed to load logo image:', user?.role === 'ADMIN' && !selectedCompanyId ? adminLogoUrl : logoObjectUrl)
-                  }
-                  e.target.style.display = 'none'
-                }}
-              />
-            ) : (
-              <Typography variant="h6" noWrap component="div" onClick={() => navigate('/dashboard')} sx={{ cursor: 'pointer', width: '100%' }}>
-          {t('common.appName')}
-        </Typography>
-            )}
-          </>
+        {((user?.role === 'ADMIN' && !selectedCompanyId && adminLogoUrl) || (companyData?.logoUrl && logoObjectUrl)) ? (
+          <Box
+            sx={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              boxSizing: 'border-box',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              px: drawerOpen ? 1 : 0,
+              py: drawerOpen ? 0 : 0
+            }}
+          >
+            <Box
+              component="img"
+              src={user?.role === 'ADMIN' && !selectedCompanyId && adminLogoUrl ? adminLogoUrl : logoObjectUrl}
+              alt={user?.role === 'ADMIN' && !selectedCompanyId ? t('common.adminLogo') : t('common.companyLogo')}
+              key={user?.role === 'ADMIN' && !selectedCompanyId ? 'admin-logo' : `${companyData?.logoUrl}-${logoTimestamp}`}
+              sx={{
+                width: drawerOpen ? 'auto' : '44px',
+                height: drawerOpen ? 'auto' : '44px',
+                maxWidth: drawerOpen ? 'calc(100% - 16px)' : '44px',
+                maxHeight: drawerOpen ? '56px' : '44px',
+                minWidth: drawerOpen ? '0' : '44px',
+                minHeight: drawerOpen ? '0' : '44px',
+                objectFit: 'contain',
+                cursor: 'pointer',
+                display: 'block',
+                flexShrink: 0,
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': { 
+                  opacity: 0.8, 
+                  transform: drawerOpen ? 'scale(1.02)' : 'scale(1.1)'
+                }
+              }}
+              onClick={() => navigate('/dashboard')}
+              onError={(e) => {
+                if (process.env.NODE_ENV === 'development') {
+                  console.error('Failed to load logo image:', user?.role === 'ADMIN' && !selectedCompanyId ? adminLogoUrl : logoObjectUrl)
+                }
+                e.target.style.display = 'none'
+              }}
+            />
+          </Box>
         ) : (
-          <>
-            {((user?.role === 'ADMIN' && !selectedCompanyId && adminLogoUrl) || (companyData?.logoUrl && logoObjectUrl)) ? (
-              <Box
-                component="img"
-                src={user?.role === 'ADMIN' && !selectedCompanyId && adminLogoUrl ? adminLogoUrl : logoObjectUrl}
-                alt={user?.role === 'ADMIN' && !selectedCompanyId ? "Admin Logo" : "Company Logo"}
-                key={user?.role === 'ADMIN' && !selectedCompanyId ? 'admin-logo' : `${companyData?.logoUrl}-${logoTimestamp}`}
-                sx={{
-                  width: 40,
-                  height: 40,
-                  maxWidth: 40,
-                  maxHeight: 40,
-                  objectFit: 'contain', // Maintains aspect ratio (square when collapsed)
-                  cursor: 'pointer',
-                  '&:hover': { opacity: 0.8 }
-                }}
-                onClick={() => navigate('/dashboard')}
-                onError={(e) => {
-                  if (process.env.NODE_ENV === 'development') {
-                    console.error('Failed to load logo image:', user?.role === 'ADMIN' && !selectedCompanyId ? adminLogoUrl : logoObjectUrl)
-                  }
-                  e.target.style.display = 'none'
-                }}
-              />
-            ) : (
-              <Typography variant="h6" component="div" sx={{ fontSize: '1.2rem', cursor: 'pointer' }} onClick={() => navigate('/dashboard')}>
-                {t('common.appName').charAt(0)}
-              </Typography>
-            )}
-          </>
+          <Typography 
+            variant="h6"
+            noWrap={!drawerOpen}
+            component="div" 
+            onClick={() => navigate('/dashboard')} 
+            sx={{ 
+              cursor: 'pointer', 
+              width: '100%',
+              textAlign: 'center',
+              fontSize: drawerOpen ? '1.25rem' : '1.5rem',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: drawerOpen ? 'normal' : 'nowrap'
+            }}
+          >
+            {drawerOpen ? t('common.appName') : t('common.appName').charAt(0)}
+          </Typography>
         )}
       </Toolbar>
-      <Divider />
-      <List sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+      <Divider sx={{ borderColor: 'rgba(0, 0, 0, 0.08)' }} />
+      <List sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', px: 1, py: 1 }}>
         <Box sx={{ flexGrow: 1 }}>
           {filteredMenuItems.map((item) => {
             // For ADMIN users, disable company-dependent items if no company is selected
             const isAdmin = user?.role === 'ADMIN'
             const requiresCompany = isAdmin && companyDependentItems.some(depItem => depItem.path === item.path)
             const isDisabled = requiresCompany && !selectedCompanyId
+            const isSelected = location.pathname === item.path
             
             return (
-            <ListItem key={item.text} disablePadding>
+            <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
               <Tooltip 
-                title={!drawerOpen ? (isDisabled ? `${item.text} (Select a company first)` : item.text) : ''} 
+                title={!drawerOpen ? (isDisabled ? `${item.text} (${t('common.selectCompanyFirst')})` : item.text) : ''} 
                 placement="right"
               >
               <ListItemButton
-                selected={location.pathname === item.path}
-                  disabled={isDisabled}
+                selected={isSelected}
+                disabled={isDisabled}
                 onClick={() => {
                     if (!isDisabled) {
                   navigate(item.path)
@@ -673,6 +685,49 @@ const Layout = () => {
                     minHeight: 48,
                     justifyContent: drawerOpen ? 'initial' : 'center',
                     px: 2.5,
+                    borderRadius: 2,
+                    transition: 'all 0.3s ease',
+                    backgroundColor: isSelected 
+                      ? 'rgba(102, 126, 234, 0.15)' 
+                      : 'transparent',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    '&::before': isSelected ? {
+                      content: '""',
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: '4px',
+                      background: 'linear-gradient(180deg, #667eea 0%, #764ba2 100%)',
+                      borderRadius: '0 4px 4px 0'
+                    } : {},
+                    '&:hover': {
+                      backgroundColor: isSelected 
+                        ? 'rgba(102, 126, 234, 0.2)' 
+                        : 'rgba(102, 126, 234, 0.08)',
+                      transform: 'translateX(4px)',
+                      '& .MuiListItemIcon-root': {
+                        color: '#667eea'
+                      },
+                      '& .MuiListItemText-primary': {
+                        color: '#667eea',
+                        fontWeight: 600
+                      }
+                    },
+                    '&.Mui-selected': {
+                      backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                      '& .MuiListItemIcon-root': {
+                        color: '#667eea'
+                      },
+                      '& .MuiListItemText-primary': {
+                        color: '#667eea',
+                        fontWeight: 600
+                      }
+                    },
+                    '&:disabled': {
+                      opacity: 0.5
+                    }
                   }}
                 >
                   <ListItemIcon
@@ -680,11 +735,24 @@ const Layout = () => {
                       minWidth: 0,
                       mr: drawerOpen ? 3 : 'auto',
                       justifyContent: 'center',
+                      color: isSelected ? '#667eea' : 'inherit',
+                      transition: 'color 0.3s ease'
                     }}
                   >
                   {item.icon}
                 </ListItemIcon>
-                  {drawerOpen && <ListItemText primary={item.text} />}
+                  {drawerOpen && (
+                    <ListItemText 
+                      primary={item.text} 
+                      sx={{
+                        '& .MuiListItemText-primary': {
+                          color: isSelected ? '#667eea' : 'inherit',
+                          fontWeight: isSelected ? 600 : 400,
+                          transition: 'all 0.3s ease'
+                        }
+                      }}
+                    />
+                  )}
               </ListItemButton>
               </Tooltip>
             </ListItem>
@@ -695,10 +763,10 @@ const Layout = () => {
         {/* Wiki section at the bottom, separated for ADMIN only */}
         {user?.role === 'ADMIN' && isPageEnabled('/wiki') && (
           <>
-            <Divider sx={{ my: 1 }} />
-            <ListItem disablePadding>
+            <Divider sx={{ my: 1, borderColor: 'rgba(0, 0, 0, 0.08)' }} />
+            <ListItem disablePadding sx={{ mb: 0.5 }}>
               <Tooltip 
-                title={!drawerOpen ? 'Wiki Documentation' : ''} 
+                title={!drawerOpen ? t('common.wikiDocumentation') : ''} 
                 placement="right"
               >
                 <ListItemButton
@@ -711,6 +779,46 @@ const Layout = () => {
                     minHeight: 48,
                     justifyContent: drawerOpen ? 'initial' : 'center',
                     px: 2.5,
+                    borderRadius: 2,
+                    transition: 'all 0.3s ease',
+                    backgroundColor: location.pathname === '/wiki' 
+                      ? 'rgba(102, 126, 234, 0.15)' 
+                      : 'transparent',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    '&::before': location.pathname === '/wiki' ? {
+                      content: '""',
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: '4px',
+                      background: 'linear-gradient(180deg, #667eea 0%, #764ba2 100%)',
+                      borderRadius: '0 4px 4px 0'
+                    } : {},
+                    '&:hover': {
+                      backgroundColor: location.pathname === '/wiki' 
+                        ? 'rgba(102, 126, 234, 0.2)' 
+                        : 'rgba(102, 126, 234, 0.08)',
+                      transform: 'translateX(4px)',
+                      '& .MuiListItemIcon-root': {
+                        color: '#667eea'
+                      },
+                      '& .MuiListItemText-primary': {
+                        color: '#667eea',
+                        fontWeight: 600
+                      }
+                    },
+                    '&.Mui-selected': {
+                      backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                      '& .MuiListItemIcon-root': {
+                        color: '#667eea'
+                      },
+                      '& .MuiListItemText-primary': {
+                        color: '#667eea',
+                        fontWeight: 600
+                      }
+                    }
                   }}
                 >
                   <ListItemIcon
@@ -718,11 +826,24 @@ const Layout = () => {
                       minWidth: 0,
                       mr: drawerOpen ? 3 : 'auto',
                       justifyContent: 'center',
+                      color: location.pathname === '/wiki' ? '#667eea' : 'inherit',
+                      transition: 'color 0.3s ease'
                     }}
                   >
                     <MenuBook />
                   </ListItemIcon>
-                  {drawerOpen && <ListItemText primary="Wiki" />}
+                  {drawerOpen && (
+                    <ListItemText 
+                      primary={t('common.wiki')} 
+                      sx={{
+                        '& .MuiListItemText-primary': {
+                          color: location.pathname === '/wiki' ? '#667eea' : 'inherit',
+                          fontWeight: location.pathname === '/wiki' ? 600 : 400,
+                          transition: 'all 0.3s ease'
+                        }
+                      }}
+                    />
+                  )}
                 </ListItemButton>
               </Tooltip>
             </ListItem>
@@ -744,6 +865,30 @@ const Layout = () => {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
           }),
+          backgroundColor: '#fefefe',
+          background: '#fefefe',
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.3)',
+          zIndex: theme.zIndex.drawer + 1,
+          '&.MuiAppBar-root': {
+            backgroundColor: '#fefefe !important',
+            background: '#fefefe !important',
+            backgroundImage: 'none !important',
+          },
+          '&.MuiPaper-root': {
+            backgroundColor: '#fefefe !important',
+            background: '#fefefe !important',
+            backgroundImage: 'none !important',
+          },
+          '& .MuiToolbar-root': {
+            backgroundColor: '#fefefe',
+            background: '#fefefe',
+            color: '#333',
+            minHeight: '64px !important',
+            position: 'relative',
+            zIndex: 2
+          }
         }}
       >
         <Toolbar>
@@ -752,7 +897,16 @@ const Layout = () => {
             aria-label="open drawer"
             edge="start"
             onClick={handleMobileDrawerToggle}
-            sx={{ mr: 2, display: { md: 'none' } }}
+            sx={{ 
+              mr: 2, 
+              display: { md: 'none' },
+              color: '#667eea',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                transform: 'scale(1.1)'
+              }
+            }}
           >
             <MenuIcon />
           </IconButton>
@@ -761,17 +915,33 @@ const Layout = () => {
             aria-label="toggle drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { xs: 'none', md: 'flex' } }}
+            sx={{ 
+              mr: 2, 
+              display: { xs: 'none', md: 'flex' },
+              color: '#667eea',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                transform: 'scale(1.1)'
+              }
+            }}
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            {t('common.appDescription')}
-            {companyData && !(user?.role === 'ADMIN' && !selectedCompanyId) && (
-              <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                - {companyData.name}
-              </Typography>
-            )}
+          <Typography 
+            variant="h6" 
+            noWrap 
+            component="div" 
+            sx={{ 
+              flexGrow: 1,
+              fontWeight: 600,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text'
+            }}
+          >
+            {companyData && !(user?.role === 'ADMIN' && !selectedCompanyId) ? companyData.name : t('common.appName')}
           </Typography>
           <IconButton
             size="large"
@@ -780,10 +950,25 @@ const Layout = () => {
             aria-controls="primary-search-account-menu"
             aria-haspopup="true"
             onClick={handleProfileMenuOpen}
-            color="inherit"
+            sx={{
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'scale(1.1)'
+              }
+            }}
           >
             <Avatar 
-              sx={{ width: 32, height: 32 }}
+              sx={{ 
+                width: 32, 
+                height: 32,
+                border: '2px solid rgba(102, 126, 234, 0.3)',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)',
+                  borderColor: 'rgba(102, 126, 234, 0.5)'
+                }
+              }}
               src={profilePictureObjectUrl || null}
             >
               {!profilePictureObjectUrl && `${user?.firstName?.charAt(0)}${user?.lastName?.charAt(0)}`}
@@ -806,7 +991,15 @@ const Layout = () => {
           }}
           sx={{
             display: { xs: 'block', md: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': { 
+              boxSizing: 'border-box', 
+              width: drawerWidth,
+              backgroundColor: '#fefefe',
+              background: '#fefefe',
+              backdropFilter: 'blur(20px)',
+              borderRight: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            },
           }}
         >
           {drawer}
@@ -823,6 +1016,33 @@ const Layout = () => {
                 duration: theme.transitions.duration.enteringScreen,
               }),
               overflowX: 'hidden',
+              overflowY: 'auto',
+              backgroundColor: '#fefefe',
+              background: '#fefefe',
+              backdropFilter: 'blur(20px)',
+              borderRight: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              position: 'fixed',
+              height: '100vh',
+              top: 0,
+              left: 0,
+              scrollbarWidth: 'none', // Firefox
+              '&::-webkit-scrollbar': {
+                display: 'none' // Chrome, Safari, Edge
+              },
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '4px',
+                height: '100%',
+                background: 'linear-gradient(180deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%)',
+                backgroundSize: '100% 200%',
+                animation: 'gradientShiftVertical 3s ease infinite',
+                zIndex: 1,
+                pointerEvents: 'none'
+              },
             },
           }}
           open={drawerOpen}
@@ -841,10 +1061,16 @@ const Layout = () => {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
           }),
+          position: 'relative',
+          zIndex: 0,
+          minHeight: '100vh',
+          backgroundColor: 'transparent'
         }}
       >
         <Toolbar />
-        <Outlet />
+        <Box sx={{ position: 'relative', zIndex: 1, width: '100%' }}>
+          <Outlet />
+        </Box>
       </Box>
 
       <Menu
@@ -852,6 +1078,25 @@ const Layout = () => {
         open={Boolean(anchorEl)}
         onClose={handleProfileMenuClose}
         onClick={handleProfileMenuClose}
+        PaperProps={{
+          sx: {
+            backgroundColor: '#fefefe',
+            background: '#fefefe',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+            borderRadius: 2,
+            mt: 1,
+            minWidth: 200,
+            '& .MuiMenuItem-root': {
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                transform: 'translateX(4px)'
+              }
+            }
+          }
+        }}
       >
         <MenuItem onClick={() => navigate('/profile')}>
           <ListItemIcon>
@@ -863,7 +1108,7 @@ const Layout = () => {
           <ListItemIcon>
             <Language fontSize="small" />
           </ListItemIcon>
-          {language === 'en' ? 'Türkçe' : 'English'}
+          {language === 'en' ? t('common.turkish') : t('common.english')}
         </MenuItem>
         <Divider />
         <MenuItem onClick={handleLogout}>

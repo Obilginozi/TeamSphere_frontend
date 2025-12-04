@@ -1,472 +1,633 @@
-import { useState, useEffect } from 'react';
-import { useLanguage } from '../contexts/LanguageContext';
-import axios from 'axios';
+import { useState, useEffect } from 'react'
+import {
+  Box,
+  Typography,
+  Paper,
+  Tabs,
+  Tab,
+  Grid,
+  Card,
+  CardContent,
+  CircularProgress,
+  Alert,
+  Chip,
+  IconButton,
+  TextField,
+  Button,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Link as MuiLink,
+} from '@mui/material'
+import {
+  Person as PersonIcon,
+  Email as EmailIcon,
+  Phone as PhoneIcon,
+  Business as BusinessIcon,
+  CreditCard as CreditCardIcon,
+  Support as SupportIcon,
+  Info as InfoIcon,
+  ContentCopy as CopyIcon,
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
+  OpenInNew as OpenInNewIcon,
+  Lock as LockIcon,
+} from '@mui/icons-material'
+import { useLanguage } from '../contexts/LanguageContext'
+import { useAuth } from '../contexts/AuthContext'
+import api from '../services/api'
+import { useNavigate } from 'react-router-dom'
 
 const AccountDetails = () => {
-  const { t } = useLanguage();
-  const [accountData, setAccountData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState('account');
+  const { t } = useLanguage()
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const [accountData, setAccountData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [activeTab, setActiveTab] = useState(0)
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
-    fetchAccountDetails();
-  }, []);
+    fetchAccountDetails()
+  }, [])
 
   const fetchAccountDetails = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/account/details', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setAccountData(response.data.data);
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching account details:', error);
-      setLoading(false);
+      setLoading(true)
+      setError(null)
+      const response = await api.get('/account/details')
+      setAccountData(response.data?.data || response.data)
+    } catch (err) {
+      console.error('Error fetching account details:', err)
+      setError(err.response?.data?.message || err.message || t('account.error_loading') || 'Failed to load account details')
+    } finally {
+      setLoading(false)
     }
-  };
+  }
+
+  const formatDate = (dateString) => {
+    if (!dateString) return t('common.not_available') || 'N/A'
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    } catch {
+      return dateString
+    }
+  }
+
+  const handleCopy = (text) => {
+    navigator.clipboard.writeText(text)
+    // Could add toast notification here
+  }
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  if (error && !accountData) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">{error}</Alert>
+        <Button onClick={fetchAccountDetails} sx={{ mt: 2 }}>
+          {t('common.retry') || 'Retry'}
+        </Button>
+      </Box>
+    )
   }
 
   if (!accountData) {
     return (
-      <div className="text-center py-8">
-        <p className="text-red-500">{t('account.error_loading')}</p>
-      </div>
-    );
+      <Box sx={{ p: 3 }}>
+        <Alert severity="warning">
+          {t('account.error_loading') || 'Failed to load account details'}
+        </Alert>
+      </Box>
+    )
   }
 
-  const formatDate = (dateString) => {
-    if (!dateString) return t('common.not_available');
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const tabs = [
-    { id: 'account', label: t('account.tab_account'), icon: '👤' },
-    { id: 'company', label: t('account.tab_company'), icon: '🏢' },
-    { id: 'subscription', label: t('account.tab_subscription'), icon: '💳' },
-    { id: 'support', label: t('account.tab_support'), icon: '🎫' },
-    { id: 'about', label: t('account.tab_about'), icon: 'ℹ️' }
-  ];
-
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
+    <Box
+      sx={{
+        minHeight: 'calc(100vh - 64px)',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        position: 'relative',
+        margin: -3,
+        padding: 3,
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }
+      }}
+    >
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-lg shadow-lg mb-6">
-        <h1 className="text-3xl font-bold mb-2">{t('account.title')}</h1>
-        <p className="text-blue-100">
-          {t('account.welcome')}, {accountData.firstName} {accountData.lastName}
-        </p>
-      </div>
+      <Box sx={{ mb: 4 }}>
+          <Box display="flex" alignItems="center" gap={2} mb={1}>
+            <Box
+              sx={{
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)'
+              }}
+            >
+              <PersonIcon sx={{ fontSize: 28, color: 'white' }} />
+            </Box>
+            <Box>
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}
+              >
+          {t('pageTitles.accountDetails')}
+        </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          {t('account.welcome') || 'Welcome'}, {accountData.firstName} {accountData.lastName}
+        </Typography>
+            </Box>
+          </Box>
+      </Box>
 
       {/* Tabs */}
-      <div className="bg-white rounded-lg shadow mb-6">
-        <div className="flex border-b overflow-x-auto">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-600 hover:text-blue-500'
-              }`}
-            >
-              <span className="mr-2">{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+        <Tabs
+          value={activeTab}
+          onChange={(e, newValue) => setActiveTab(newValue)}
+          sx={{ 
+            mb: 3,
+            '& .MuiTab-root': {
+              borderRadius: 2,
+              mx: 0.5,
+              '&.Mui-selected': {
+                background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
+                color: '#667eea',
+                fontWeight: 600
+              }
+            },
+            '& .MuiTabs-indicator': {
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+              height: 3,
+              borderRadius: '3px 3px 0 0'
+            }
+          }}
+        >
+          <Tab icon={<PersonIcon />} iconPosition="start" label={t('account.tab_account') || 'Account'} />
+          <Tab icon={<BusinessIcon />} iconPosition="start" label={t('account.tab_company') || 'Company'} />
+          <Tab icon={<CreditCardIcon />} iconPosition="start" label={t('account.tab_subscription') || 'Subscription'} />
+          <Tab icon={<SupportIcon />} iconPosition="start" label={t('account.tab_support') || 'Support'} />
+        </Tabs>
 
       {/* Account Tab */}
-      {activeTab === 'account' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-2xl font-bold mb-6">{t('account.personal_info')}</h2>
+      {activeTab === 0 && (
+          <Paper 
+            sx={{ 
+              p: 3,
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 3,
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
+          <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+            {t('account.personal_info') || 'Personal Information'}
+          </Typography>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <InfoCard
-              icon="👤"
-              label={t('account.full_name')}
-              value={`${accountData.firstName} ${accountData.lastName}`}
-            />
-            <InfoCard
-              icon="📧"
-              label={t('account.email')}
-              value={accountData.email}
-              copyable
-            />
-            <InfoCard
-              icon="📱"
-              label={t('account.phone')}
-              value={accountData.phone || t('common.not_set')}
-            />
-            <InfoCard
-              icon="🔑"
-              label={t('account.role')}
-              value={accountData.role}
-              badge
-            />
-            <InfoCard
-              icon="📅"
-              label={t('account.account_created')}
-              value={formatDate(accountData.accountCreatedAt)}
-            />
-            <InfoCard
-              icon="🕐"
-              label={t('account.last_login')}
-              value={formatDate(accountData.lastLoginAt)}
-            />
-          </div>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {t('account.full_name') || 'Full Name'}
+                    </Typography>
+                  </Box>
+                  <Typography variant="h6">
+                    {accountData.firstName} {accountData.lastName}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <EmailIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {t('account.email') || 'Email'}
+                      </Typography>
+                    </Box>
+                    <IconButton size="small" onClick={() => handleCopy(accountData.email)}>
+                      <CopyIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                  <Typography variant="h6">{accountData.email}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <PhoneIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {t('account.phone') || 'Phone'}
+                    </Typography>
+                  </Box>
+                  <Typography variant="h6">
+                    {accountData.phone || t('common.not_set') || 'Not Set'}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <LockIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {t('account.role') || 'Role'}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={accountData.role || 'EMPLOYEE'}
+                    color="primary"
+                    size="small"
+                  />
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <InfoIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {t('account.account_created') || 'Account Created'}
+                    </Typography>
+                  </Box>
+                  <Typography variant="body1">
+                    {formatDate(accountData.accountCreatedAt)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
 
           {/* Login Credentials */}
-          <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-4 text-blue-900">
-              🔐 {t('account.login_credentials')}
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('account.login_email')}
-                </label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={accountData.email}
-                    readOnly
-                    className="flex-1 px-4 py-2 border rounded bg-white"
-                  />
-                  <button
-                    onClick={() => navigator.clipboard.writeText(accountData.email)}
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                  >
-                    📋 {t('common.copy')}
-                  </button>
-                </div>
-              </div>
+          <Box sx={{ mt: 4, p: 3, bgcolor: 'primary.50', borderRadius: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              <LockIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+              {t('account.login_credentials') || 'Login Credentials'}
+            </Typography>
+            
+            <Box sx={{ mt: 2 }}>
+              <TextField
+                fullWidth
+                label={t('account.login_email') || 'Login Email'}
+                value={accountData.email || ''}
+                InputProps={{
+                  readOnly: true,
+                  endAdornment: (
+                    <IconButton onClick={() => handleCopy(accountData.email)}>
+                      <CopyIcon />
+                    </IconButton>
+                  )
+                }}
+                sx={{ mb: 2 }}
+              />
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('account.password')}
-                </label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value="●●●●●●●●●●"
-                    readOnly
-                    className="flex-1 px-4 py-2 border rounded bg-white"
-                  />
-                  <button
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-                  >
-                    {showPassword ? '🙈' : '👁️'} {showPassword ? t('common.hide') : t('common.show')}
-                  </button>
-                </div>
-                <p className="text-sm text-gray-600 mt-2">
-                  {t('account.password_note')}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('account.login_url')}
-                </label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={accountData.loginUrl}
-                    readOnly
-                    className="flex-1 px-4 py-2 border rounded bg-white"
-                  />
-                  <button
-                    onClick={() => window.open(accountData.loginUrl, '_blank')}
-                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-                  >
-                    🔗 {t('common.open')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+              <TextField
+                fullWidth
+                label={t('account.password') || 'Password'}
+                type={showPassword ? 'text' : 'password'}
+                value="••••••••"
+                InputProps={{
+                  readOnly: true,
+                  endAdornment: (
+                    <IconButton onClick={() => setShowPassword(!showPassword)}>
+                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </IconButton>
+                  )
+                }}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                {t('account.password_note') || 'Password cannot be displayed. Contact administrator to reset.'}
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
       )}
 
       {/* Company Tab */}
-      {activeTab === 'company' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-2xl font-bold mb-6">{t('account.company_info')}</h2>
+      {activeTab === 1 && (
+          <Paper 
+            sx={{ 
+              p: 3,
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 3,
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
+          <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+            {t('account.company_info') || 'Company Information'}
+          </Typography>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <InfoCard
-              icon="🏢"
-              label={t('account.company_name')}
-              value={accountData.companyName}
-            />
-            <InfoCard
-              icon="🌐"
-              label={t('account.company_domain')}
-              value={`${accountData.companyDomain}.teamsphere.com`}
-              copyable
-            />
-            <InfoCard
-              icon="📧"
-              label={t('account.company_email')}
-              value={accountData.companyEmail}
-              copyable
-            />
-            <InfoCard
-              icon="📱"
-              label={t('account.company_phone')}
-              value={accountData.companyPhone || t('common.not_set')}
-            />
-            <InfoCard
-              icon="🌍"
-              label={t('account.country')}
-              value={accountData.country}
-            />
-            <InfoCard
-              icon="👥"
-              label={t('account.employees')}
-              value={`${accountData.currentEmployeeCount} / ${accountData.maxEmployees}`}
-            />
-          </div>
-        </div>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <BusinessIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {t('account.company_name') || 'Company Name'}
+                    </Typography>
+                  </Box>
+                  <Typography variant="h6">{accountData.companyName || 'N/A'}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <EmailIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {t('account.company_email') || 'Company Email'}
+                      </Typography>
+                    </Box>
+                    <IconButton size="small" onClick={() => handleCopy(accountData.companyEmail)}>
+                      <CopyIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                  <Typography variant="h6">{accountData.companyEmail || 'N/A'}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <PhoneIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {t('account.company_phone') || 'Company Phone'}
+                    </Typography>
+                  </Box>
+                  <Typography variant="h6">
+                    {accountData.companyPhone || t('common.not_set') || 'Not Set'}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {t('account.employees') || 'Employees'}
+                    </Typography>
+                  </Box>
+                  <Typography variant="h6">
+                    {accountData.currentEmployeeCount || 0} / {accountData.maxEmployees || 'N/A'}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </Paper>
       )}
 
       {/* Subscription Tab */}
-      {activeTab === 'subscription' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-2xl font-bold mb-6">{t('account.subscription_info')}</h2>
+      {activeTab === 2 && (
+          <Paper 
+            sx={{ 
+              p: 3,
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 3,
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
+          <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+            {t('account.subscription_info') || 'Subscription Information'}
+          </Typography>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <InfoCard
-              icon="📦"
-              label={t('account.subscription_plan')}
-              value={accountData.subscriptionPlan}
-              badge
-            />
-            <InfoCard
-              icon="✅"
-              label={t('account.subscription_status')}
-              value={accountData.subscriptionStatus}
-              badge
-              color={accountData.subscriptionStatus === 'ACTIVE' ? 'green' : 'yellow'}
-            />
-            <InfoCard
-              icon="🔄"
-              label={t('account.billing_cycle')}
-              value={accountData.billingCycle}
-            />
-            <InfoCard
-              icon="💳"
-              label={t('account.payment_method')}
-              value={accountData.paymentMethod}
-            />
-            <InfoCard
-              icon="📅"
-              label={t('account.subscription_start')}
-              value={formatDate(accountData.subscriptionStartDate)}
-            />
-            <InfoCard
-              icon="⏰"
-              label={t('account.next_billing')}
-              value={formatDate(accountData.nextBillingDate)}
-            />
-          </div>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <CreditCardIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {t('account.subscription_plan') || 'Subscription Plan'}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={accountData.subscriptionPlan || 'NONE'}
+                    color="primary"
+                    size="small"
+                  />
+                </CardContent>
+              </Card>
+            </Grid>
 
-          {accountData.trialEndDate && (
-            <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <p className="text-yellow-800">
-                ⚠️ {t('account.trial_ends')}: <strong>{formatDate(accountData.trialEndDate)}</strong>
-              </p>
-            </div>
-          )}
-        </div>
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <InfoIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {t('account.subscription_status') || 'Status'}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={accountData.subscriptionStatus || 'INACTIVE'}
+                    color={accountData.subscriptionStatus === 'ACTIVE' ? 'success' : 'warning'}
+                    size="small"
+                  />
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    {t('account.billing_cycle') || 'Billing Cycle'}
+                  </Typography>
+                  <Typography variant="body1">
+                    {accountData.billingCycle || 'MONTHLY'}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    {t('account.payment_method') || 'Payment Method'}
+                  </Typography>
+                  <Typography variant="body1">
+                    {accountData.paymentMethod || t('common.not_set') || 'Not Set'}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </Paper>
       )}
 
       {/* Support Tab */}
-      {activeTab === 'support' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-2xl font-bold mb-6">{t('account.support_info')}</h2>
-          
-          {/* Internal Ticketing System */}
-          <div className="mb-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-4 text-blue-900">
-              🎫 {t('account.ticketing_system')}
-            </h3>
-            <p className="text-gray-700 mb-4">{t('account.ticketing_description')}</p>
-            
-            <div className="space-y-4">
-              <div className="bg-white p-4 rounded border">
-                <p className="text-sm text-gray-600 mb-2">
-                  To submit a ticket, please visit the Tickets page from your dashboard.
-                </p>
-                <button
-                  onClick={() => window.location.href = '/tickets'}
-                  className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                >
-                  Go to Tickets
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Contact Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <InfoCard
-              icon="📧"
-              label={t('account.support_email')}
-              value={accountData.supportEmail}
-              copyable
-            />
-            <InfoCard
-              icon="📱"
-              label={t('account.support_phone')}
-              value={accountData.supportPhone}
-            />
-          </div>
-
-          <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
-            <p className="text-green-800">
-              💡 {t('account.support_tip')}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* About Tab */}
-      {activeTab === 'about' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-2xl font-bold mb-6">{t('account.about_teamsphere')}</h2>
-          
-          <div className="prose max-w-none">
-            <p className="text-lg text-gray-700 mb-6">
-              {t('account.about_description')}
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-              <LinkCard
-                icon="🌐"
-                title={t('account.website')}
-                url="https://teamsphere.com"
-              />
-              <LinkCard
-                icon="📱"
-                title={t('account.mobile_app')}
-                url={accountData.mobileAppUrl}
-              />
-              <LinkCard
-                icon="📚"
-                title={t('account.api_documentation')}
-                url={accountData.apiUrl + '/swagger-ui.html'}
-              />
-              <LinkCard
-                icon="🔒"
-                title={t('account.privacy_policy')}
-                url="https://teamsphere.com/privacy"
-              />
-            </div>
-
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-4">{t('account.features')}</h3>
-              <ul className="space-y-2">
-                <li className="flex items-start">
-                  <span className="mr-2">✅</span>
-                  <span>{t('account.feature_1')}</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="mr-2">✅</span>
-                  <span>{t('account.feature_2')}</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="mr-2">✅</span>
-                  <span>{t('account.feature_3')}</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="mr-2">✅</span>
-                  <span>{t('account.feature_4')}</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="mr-2">✅</span>
-                  <span>{t('account.feature_5')}</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Info Card Component
-const InfoCard = ({ icon, label, value, copyable, badge, color = 'blue' }) => {
-  const { t } = useLanguage();
-  
-  const handleCopy = () => {
-    navigator.clipboard.writeText(value);
-    // You could add a toast notification here
-  };
-
-  return (
-    <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center mb-2">
-            <span className="text-2xl mr-2">{icon}</span>
-            <span className="text-sm text-gray-600">{label}</span>
-          </div>
-          {badge ? (
-            <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium bg-${color}-100 text-${color}-800`}>
-              {value}
-            </span>
-          ) : (
-            <p className="text-gray-900 font-medium">{value}</p>
-          )}
-        </div>
-        {copyable && (
-          <button
-            onClick={handleCopy}
-            className="ml-2 px-2 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
-            title={t('common.copy')}
+      {activeTab === 3 && (
+          <Paper 
+            sx={{ 
+              p: 3,
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 3,
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                transform: 'translateY(-2px)'
+              }
+            }}
           >
-            📋
-          </button>
-        )}
-      </div>
-    </div>
-  );
-};
+          <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+            {t('account.support_info') || 'Support Information'}
+          </Typography>
+          
+          <Box sx={{ mb: 3, p: 2, bgcolor: 'info.light', borderRadius: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              <SupportIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+              {t('account.ticketing_system') || 'Ticketing System'}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              {t('account.ticketing_description') || 'Create tickets to get help from HR or Admin'}
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={() => navigate(user?.role === 'EMPLOYEE' ? '/employee-tickets' : '/company-tickets')}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+            >
+              {t('account.go_to_tickets') || 'Go to Tickets'}
+            </Button>
+          </Box>
 
-// Link Card Component
-const LinkCard = ({ icon, title, url }) => {
-  const { t } = useLanguage();
-  
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-center p-4 border rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
-    >
-      <span className="text-3xl mr-3">{icon}</span>
-      <div className="flex-1">
-        <p className="font-medium text-gray-900">{title}</p>
-        <p className="text-sm text-gray-600 truncate">{url}</p>
-      </div>
-      <span className="text-blue-500">→</span>
-    </a>
-  );
-};
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <EmailIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {t('account.support_email') || 'Support Email'}
+                      </Typography>
+                    </Box>
+                    <IconButton size="small" onClick={() => handleCopy(accountData.supportEmail)}>
+                      <CopyIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                  <Typography variant="body1">
+                    {accountData.supportEmail || 'support@teamsphere.com'}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
 
-export default AccountDetails;
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <PhoneIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {t('account.support_phone') || 'Support Phone'}
+                    </Typography>
+                  </Box>
+                  <Typography variant="body1">
+                    {accountData.supportPhone || '+1 (555) 123-4567'}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
 
+      {error && (
+        <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+      </Box>
+    </Box>
+  )
+}
 
+export default AccountDetails

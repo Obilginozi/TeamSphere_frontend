@@ -33,6 +33,7 @@ import {
 } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../contexts/LanguageContext'
 import api from '../services/api'
 
 const Settings = () => {
@@ -46,9 +47,9 @@ const Settings = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box>
       <Typography variant="h4" gutterBottom>
-        {t('settings.title')}
+        {t('pageTitles.settings')}
       </Typography>
 
       <Paper>
@@ -163,7 +164,20 @@ const ProfileSettings = ({ showSnackbar }) => {
       </Grid>
 
       <Box sx={{ mt: 3 }}>
-        <Button variant="contained" onClick={handleSave}>
+        <Button 
+          variant="contained" 
+          onClick={handleSave}
+          sx={{
+            borderRadius: 2,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+              boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+              transform: 'translateY(-2px)'
+            }
+          }}
+        >
           {t('settings.saveChanges')}
         </Button>
       </Box>
@@ -248,7 +262,20 @@ const SecuritySettings = ({ showSnackbar }) => {
       </Alert>
 
       <Box sx={{ mt: 3 }}>
-        <Button variant="contained" onClick={handleChangePassword}>
+        <Button 
+          variant="contained" 
+          onClick={handleChangePassword}
+          sx={{
+            borderRadius: 2,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+              boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+              transform: 'translateY(-2px)'
+            }
+          }}
+        >
           {t('settings.changePassword')}
         </Button>
       </Box>
@@ -277,7 +304,7 @@ const AppearanceSettings = ({ showSnackbar }) => {
     // Save theme preferences
     localStorage.setItem('theme', theme)
     localStorage.setItem('fontSize', fontSize)
-    showSnackbar('Appearance settings saved', 'success')
+    showSnackbar(t('settings.appearanceSettingsSaved'), 'success')
   }
 
   return (
@@ -335,7 +362,20 @@ const AppearanceSettings = ({ showSnackbar }) => {
       </Grid>
 
       <Box sx={{ mt: 3 }}>
-        <Button variant="contained" onClick={handleSave}>
+        <Button 
+          variant="contained" 
+          onClick={handleSave}
+          sx={{
+            borderRadius: 2,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+              boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+              transform: 'translateY(-2px)'
+            }
+          }}
+        >
           {t('settings.savePreferences')}
         </Button>
       </Box>
@@ -439,7 +479,20 @@ const NotificationSettings = ({ showSnackbar }) => {
       </Box>
 
       <Box sx={{ mt: 3 }}>
-        <Button variant="contained" onClick={handleSave}>
+        <Button 
+          variant="contained" 
+          onClick={handleSave}
+          sx={{
+            borderRadius: 2,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+              boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+              transform: 'translateY(-2px)'
+            }
+          }}
+        >
           {t('settings.savePreferences')}
         </Button>
       </Box>
@@ -448,11 +501,20 @@ const NotificationSettings = ({ showSnackbar }) => {
 }
 
 const LanguageSettings = ({ showSnackbar }) => {
-  const [language, setLanguage] = useState('en')
+  const { t } = useTranslation()
+  const { language, changeLanguage } = useLanguage()
   const [timezone, setTimezone] = useState('UTC')
   const [dateFormat, setDateFormat] = useState('MM/DD/YYYY')
 
+  const handleLanguageChange = (newLanguage) => {
+    changeLanguage(newLanguage)
+    showSnackbar(t('settings.languageSettingsSaved'), 'success')
+  }
+
   const handleSave = () => {
+    // Save timezone and date format preferences
+    localStorage.setItem('timezone', timezone)
+    localStorage.setItem('dateFormat', dateFormat)
     showSnackbar(t('settings.languageSettingsSaved'), 'success')
   }
 
@@ -470,7 +532,7 @@ const LanguageSettings = ({ showSnackbar }) => {
             <Select
               value={language}
               label={t('settings.language')}
-              onChange={(e) => setLanguage(e.target.value)}
+              onChange={(e) => handleLanguageChange(e.target.value)}
             >
               <MenuItem value="en">English</MenuItem>
               <MenuItem value="tr">Turkish</MenuItem>
@@ -514,7 +576,20 @@ const LanguageSettings = ({ showSnackbar }) => {
       </Grid>
 
       <Box sx={{ mt: 3 }}>
-        <Button variant="contained" onClick={handleSave}>
+        <Button 
+          variant="contained" 
+          onClick={handleSave}
+          sx={{
+            borderRadius: 2,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+              boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+              transform: 'translateY(-2px)'
+            }
+          }}
+        >
           {t('settings.savePreferences')}
         </Button>
       </Box>

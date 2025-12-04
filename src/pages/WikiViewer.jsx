@@ -30,7 +30,7 @@ import {
   GetApp as DownloadIcon,
   OpenInNew as OpenInNewIcon
 } from '@mui/icons-material'
-import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { Navigate } from 'react-router-dom'
 import api from '../services/api'
@@ -119,7 +119,7 @@ const renderMarkdown = (markdown) => {
 }
 
 const WikiViewer = () => {
-  const { t } = useTranslation()
+  const { t } = useLanguage()
   const { user } = useAuth()
   const [wikiDocuments, setWikiDocuments] = useState([])
   const [docFiles, setDocFiles] = useState([])
@@ -255,11 +255,11 @@ const WikiViewer = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <MenuBookIcon sx={{ fontSize: 40, color: 'primary.main', mr: 2 }} />
           <Typography variant="h3" component="h1" sx={{ fontWeight: 600 }}>
-            Documentation Wiki
+            {t('wiki.documentationWiki')}
           </Typography>
         </Box>
         <Typography variant="body1" color="text.secondary">
-          Comprehensive documentation and knowledge base for TeamSphere platform
+          {t('wiki.comprehensiveDocumentation')}
         </Typography>
       </Box>
 
@@ -284,7 +284,7 @@ const WikiViewer = () => {
                 }
               }}
             >
-              Documentation Files
+              {t('wiki.documentationFiles')}
             </Button>
             <Button
               variant={activeTab === 'wiki' ? 'contained' : 'outlined'}
@@ -295,7 +295,7 @@ const WikiViewer = () => {
                 }
               }}
             >
-              Wiki Articles
+              {t('wiki.wikiArticles')}
             </Button>
             <Button
               variant="outlined"
@@ -304,7 +304,7 @@ const WikiViewer = () => {
               target="_blank"
               sx={{ ml: 'auto' }}
             >
-              Swagger API Docs
+              {t('wiki.swaggerApiDocs')}
             </Button>
           </Box>
         </Box>
@@ -326,7 +326,7 @@ const WikiViewer = () => {
         </IconButton>
         <InputBase
           sx={{ ml: 1, flex: 1 }}
-          placeholder="Search documentation..."
+          placeholder={t('wiki.searchDocumentation')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
@@ -350,7 +350,7 @@ const WikiViewer = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <CategoryIcon sx={{ mr: 1, color: 'primary.main' }} />
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  Categories
+                  {t('wiki.categories')}
                 </Typography>
               </Box>
               <Divider sx={{ mb: 2 }} />
@@ -364,7 +364,7 @@ const WikiViewer = () => {
             }}>
               {Object.keys(filteredGroupedDocs).length === 0 ? (
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                  {searchQuery ? 'No results found' : 'No documents available'}
+                  {searchQuery ? t('wiki.noResultsFound') : t('wiki.noDocumentsAvailable')}
                 </Typography>
               ) : (
                 Object.keys(filteredGroupedDocs).map((category) => (
@@ -451,7 +451,7 @@ const WikiViewer = () => {
             <CardContent>
               {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-                  <Typography>Loading documentation...</Typography>
+                  <Typography>{t('wiki.loadingDocumentation')}</Typography>
                 </Box>
               ) : selectedDocument ? (
                 <>
@@ -464,7 +464,7 @@ const WikiViewer = () => {
                       onClick={() => setSelectedDocument(null)}
                     >
                       <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
-                      Wiki
+                      {t('common.wiki')}
                     </Link>
                     <Typography color="text.primary" sx={{ textTransform: 'capitalize' }}>
                       {selectedDocument.category.replace(/_/g, ' ')}
@@ -501,7 +501,7 @@ const WikiViewer = () => {
                           target="_blank"
                           size="small"
                         >
-                          Download
+                          {t('wiki.download')}
                         </Button>
                       )}
                     </Box>
@@ -532,10 +532,10 @@ const WikiViewer = () => {
                     <Box sx={{ textAlign: 'center', py: 8 }}>
                       <PdfIcon sx={{ fontSize: 80, color: 'error.main', mb: 2 }} />
                       <Typography variant="h5" gutterBottom>
-                        PDF Document
+                        {t('wiki.pdfDocument')}
                       </Typography>
                       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                        This is a PDF file. Click the download button above to view it.
+                        {t('wiki.pdfFileDescription')}
                       </Typography>
                       <Button
                         variant="contained"
@@ -543,8 +543,18 @@ const WikiViewer = () => {
                         startIcon={<DownloadIcon />}
                         href={selectedDocument.downloadUrl}
                         target="_blank"
+                        sx={{
+                          borderRadius: 2,
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                          '&:hover': {
+                            background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                            boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                            transform: 'translateY(-2px)'
+                          }
+                        }}
                       >
-                        Download PDF
+                        {t('wiki.downloadPdf')}
                       </Button>
                     </Box>
                   ) : (
@@ -689,11 +699,11 @@ const WikiViewer = () => {
                     }}
                   >
                     <Typography variant="body2" color="text.secondary">
-                      Last updated: {new Date(selectedDocument.updatedAt).toLocaleString()}
+                      {t('wiki.lastUpdated')} {new Date(selectedDocument.updatedAt).toLocaleString()}
                     </Typography>
                     {selectedDocument.updatedByUserName && (
                       <Typography variant="body2" color="text.secondary">
-                        Updated by: {selectedDocument.updatedByUserName}
+                        {t('wiki.updatedBy')} {selectedDocument.updatedByUserName}
                       </Typography>
                     )}
                   </Box>
@@ -702,12 +712,12 @@ const WikiViewer = () => {
                 <Box sx={{ textAlign: 'center', py: 8 }}>
                   <MenuBookIcon sx={{ fontSize: 80, color: 'text.secondary', mb: 2, opacity: 0.5 }} />
                   <Typography variant="h5" color="text.secondary" gutterBottom>
-                    {searchQuery ? 'No documents found' : 'Welcome to Wiki'}
+                    {searchQuery ? t('wiki.noDocumentsFound') : t('wiki.welcomeToWiki')}
                   </Typography>
                   <Typography variant="body1" color="text.secondary">
                     {searchQuery
-                      ? 'Try adjusting your search terms'
-                      : 'Select a document from the sidebar to get started'}
+                      ? t('wiki.tryAdjustingSearch')
+                      : t('wiki.selectDocumentFromSidebar')}
                   </Typography>
                 </Box>
               )}

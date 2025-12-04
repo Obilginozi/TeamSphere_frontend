@@ -38,13 +38,13 @@ import {
   PersonAdd,
   Refresh,
 } from '@mui/icons-material'
-import { useLanguage } from '../contexts/LanguageContext'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import QRCodeDisplay from '../components/QRCodeDisplay'
 import api from '../services/api'
 
 const AccessControl = () => {
-  const { t } = useLanguage()
+  const { t, i18n } = useTranslation()
   const { user } = useAuth()
   const [employeeId, setEmployeeId] = useState(null)
   const [employees, setEmployees] = useState([])
@@ -66,8 +66,24 @@ const AccessControl = () => {
     appVersion: '',
     deviceFingerprint: '',
   })
+  const [deviceMatchQRCode, setDeviceMatchQRCode] = useState(null)
+  const [deviceMatchQRLoading, setDeviceMatchQRLoading] = useState(false)
+  const [selectedEmployeeForQR, setSelectedEmployeeForQR] = useState(null)
+  const [nfcTagStatusList, setNfcTagStatusList] = useState([])
+  const [nfcTagDialogOpen, setNfcTagDialogOpen] = useState(false)
+  const [nfcTagId, setNfcTagId] = useState('')
+  const [selectedEmployeeForNfcTag, setSelectedEmployeeForNfcTag] = useState(null)
 
   const isHR = user?.role === 'HR' || user?.role === 'ADMIN'
+
+  // Ensure component re-renders when language changes
+  useEffect(() => {
+    const currentLang = i18n.language || localStorage.getItem('language') || 'en'
+    // Update dayjs locale if needed
+    if (typeof dayjs !== 'undefined' && dayjs.locale) {
+      dayjs.locale(currentLang === 'tr' ? 'tr' : 'en')
+    }
+  }, [i18n.language])
 
   useEffect(() => {
     loadCurrentUser()
@@ -78,11 +94,20 @@ const AccessControl = () => {
     if (isHR && user) {
       loadDeviceStatus()
       loadEmployeesWithoutDevices()
+      loadNfcTagStatus()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHR, user])
 
   const loadCurrentUser = async () => {
+    // Skip for HR/ADMIN users who might not have employee records
+    // They can select any employee from the list anyway
+    const userRole = user?.role
+    if (userRole === 'HR' || userRole === 'ADMIN') {
+      setCurrentUser(null)
+      return
+    }
+    
     try {
       const response = await api.get('/employee/me')
       const employee = response.data?.data || response.data
@@ -90,8 +115,11 @@ const AccessControl = () => {
       setEmployeeId(employee?.id || null)
       setSelectedEmployeeId(employee?.id?.toString() || '')
     } catch (err) {
-      console.error('Failed to load current user:', err)
+      // Only log error if it's not a 500 (employee not found) or 404
       // Employee might not exist yet (e.g., for ADMIN users), that's okay
+      if (err.response?.status !== 500 && err.response?.status !== 404) {
+        console.error('Failed to load current user:', err)
+      }
       // Don't set error state here as it's not critical for the page to function
       setCurrentUser(null)
     }
@@ -106,7 +134,8 @@ const AccessControl = () => {
       console.error('Failed to load employees:', err)
       // Only show error if user is HR/Admin (they should be able to see employees)
       if (isHR) {
-        setError('Failed to load employees: ' + (err.response?.data?.message || err.message))
+        const errorMsg = err.response?.data?.message || err.message || t('accessControl.failedToLoadEmployees')
+        setError(t('accessControl.failedToLoadEmployees') + ': ' + errorMsg)
       }
     }
   }
@@ -118,7 +147,8 @@ const AccessControl = () => {
       setDeviceStatusList(response.data?.data || [])
     } catch (err) {
       console.error('Failed to load device status:', err)
-      setError('Failed to load device status: ' + (err.response?.data?.message || err.message))
+      const errorMsg = err.response?.data?.message || err.message || t('accessControl.failedToLoadDeviceStatus')
+      setError(t('accessControl.failedToLoadDeviceStatus') + ': ' + errorMsg)
     } finally {
       setLoading(false)
     }
@@ -141,7 +171,7 @@ const AccessControl = () => {
 
   const handleGenerateQR = () => {
     if (!selectedEmployeeId) {
-      setError('Please select an employee')
+      setError(t('accessControl.pleaseSelectEmployee'))
       return
     }
     setEmployeeId(parseInt(selectedEmployeeId))
@@ -161,9 +191,32 @@ const AccessControl = () => {
     setMatchDialogOpen(true)
   }
 
+  const handleGenerateDeviceMatchQR = async (employee) => {
+    if (!employee || !employee.employeeId) {
+      setError(t('accessControl.pleaseSelectEmployee'))
+      return
+    }
+
+    try {
+      setDeviceMatchQRLoading(true)
+      setError(null)
+      setSelectedEmployeeForQR(employee)
+      const response = await api.get(`/devices/match-qr/${employee.employeeId}`, {
+        params: { width: 400, height: 400 }
+      })
+      setDeviceMatchQRCode(response.data.data)
+      setMatchDialogOpen(true) // Open dialog to show QR code
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || t('accessControl.failedToGenerateQR')
+      setError(errorMsg)
+    } finally {
+      setDeviceMatchQRLoading(false)
+    }
+  }
+
   const handleMatchEmployee = async () => {
     if (!selectedEmployeeForMatch || !matchForm.deviceId) {
-      setError('Please fill in all required fields')
+      setError(t('accessControl.pleaseFillRequiredFields'))
       return
     }
 
@@ -197,11 +250,127 @@ const AccessControl = () => {
     setTabValue(newValue)
   }
 
+  const loadNfcTagStatus = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await api.get('/employee/nfc-status')
+      setNfcTagStatusList(response.data?.data || [])
+    } catch (err) {
+      console.error('Failed to load NFC tag status:', err)
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || t('accessControl.failedToLoadNfcTagStatus')
+      setError(errorMsg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleOpenNfcTagDialog = (status) => {
+    setSelectedEmployeeForNfcTag({
+      employeeId: status.employeeId,
+      employeeName: status.employeeName,
+      employeeEmail: status.employeeEmail
+    })
+    setNfcTagId('')
+    setNfcTagDialogOpen(true)
+  }
+
+  const handleAssignNfcTag = async () => {
+    if (!selectedEmployeeForNfcTag || !nfcTagId.trim()) {
+      setError(t('accessControl.nfcTagIdRequired'))
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      await api.post(`/employee/${selectedEmployeeForNfcTag.employeeId}/nfc-tag`, {
+        nfcTagId: nfcTagId.trim()
+      })
+      setSuccess(t('accessControl.nfcTagAssignedSuccessfully'))
+      setNfcTagDialogOpen(false)
+      setNfcTagId('')
+      setSelectedEmployeeForNfcTag(null)
+      await loadNfcTagStatus()
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || t('accessControl.failedToAssignNfcTag')
+      setError(errorMsg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRemoveNfcTag = async (status) => {
+    if (!window.confirm(t('accessControl.confirmRemoveNfcTag', { name: status.employeeName }))) {
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      await api.delete(`/employee/${status.employeeId}/nfc-tag`)
+      setSuccess(t('accessControl.nfcTagRemovedSuccessfully'))
+      await loadNfcTagStatus()
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || t('accessControl.failedToRemoveNfcTag')
+      setError(errorMsg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
+    <Box
+      sx={{
+        minHeight: 'calc(100vh - 64px)',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        position: 'relative',
+        margin: -3,
+        padding: 3,
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }
+      }}
+    >
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
+        <Box display="flex" alignItems="center" gap={2} mb={3}>
+          <Box
+            sx={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)'
+            }}
+          >
+            <Security sx={{ fontSize: 28, color: 'white' }} />
+          </Box>
     <Box>
-      <Typography variant="h4" gutterBottom>
-        {t('accessControl.title', 'Access Control')}
+            <Typography 
+              variant="h4"
+              sx={{
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}
+            >
+        {t('pageTitles.accessControl')}
       </Typography>
+          </Box>
+        </Box>
 
       {/* Warning for employees without devices */}
       {isHR && employeesWithoutDevices.length > 0 && (
@@ -219,7 +388,7 @@ const AccessControl = () => {
               }}
             >
               <Refresh sx={{ mr: 1 }} />
-              Refresh
+              {t('common.refresh')}
             </Button>
           }
         >
@@ -256,24 +425,58 @@ const AccessControl = () => {
 
       {isHR ? (
         <Box>
-          <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 3 }}>
+          <Tabs 
+            key={i18n.language} 
+            value={tabValue} 
+            onChange={handleTabChange}
+            sx={{ 
+              mb: 3,
+              '& .MuiTab-root': {
+                borderRadius: 2,
+                mx: 0.5,
+                '&.Mui-selected': {
+                  background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
+                  color: '#667eea',
+                  fontWeight: 600
+                }
+              },
+              '& .MuiTabs-indicator': {
+                background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                height: 3,
+                borderRadius: '3px 3px 0 0'
+              }
+            }}
+          >
             <Tab label={t('accessControl.qrCodeGenerator')} />
             <Tab label={t('accessControl.deviceMatching')} />
+            <Tab label={t('accessControl.nfcTagManagement')} />
           </Tabs>
 
           {tabValue === 0 && (
-            <Paper sx={{ p: 3, mb: 3 }}>
+            <Paper 
+              sx={{ 
+                p: 3, 
+                mb: 3,
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+            >
               <Box display="flex" alignItems="center" gap={2} mb={2}>
                 <Security sx={{ fontSize: 48, color: 'primary.main' }} />
                 <Box>
                   <Typography variant="h6" gutterBottom>
-                    {t('accessControl.systemTitle', 'QR Code Generator')}
+                    {t('accessControl.systemTitle')}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {t(
-                      'accessControl.systemDescription',
-                      'Generate ISO/IEC 18004 compliant QR codes for employee access and identification'
-                    )}
+                    {t('accessControl.systemDescription')}
                   </Typography>
                 </Box>
               </Box>
@@ -309,8 +512,18 @@ const AccessControl = () => {
                     startIcon={<QrCode />}
                     onClick={handleGenerateQR}
                     disabled={!selectedEmployeeId}
+                    sx={{
+                      borderRadius: 2,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                        boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                        transform: 'translateY(-2px)'
+                      }
+                    }}
                   >
-                    {t('accessControl.generateQR', 'Generate QR Code')}
+                    {t('accessControl.generateQR')}
                   </Button>
 
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
@@ -343,7 +556,21 @@ const AccessControl = () => {
           )}
 
           {tabValue === 1 && (
-            <Paper sx={{ p: 3 }}>
+            <Paper 
+              sx={{ 
+                p: 3,
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+            >
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h6">{t('accessControl.employeeDeviceMatching')}</Typography>
                 <Button
@@ -368,7 +595,7 @@ const AccessControl = () => {
                 </Box>
               ) : (
                 <TableContainer>
-                  <Table>
+                  <Table key={i18n.language}>
                     <TableHead>
                       <TableRow>
                         <TableCell>{t('accessControl.employee')}</TableCell>
@@ -437,14 +664,25 @@ const AccessControl = () => {
                             </TableCell>
                             <TableCell align="right">
                               {!status.hasDevice ? (
-                                <Tooltip title={t('accessControl.matchDevice')}>
-                                  <IconButton
-                                    color="primary"
-                                    onClick={() => handleOpenMatchDialog(status)}
-                                  >
-                                    <PersonAdd />
-                                  </IconButton>
-                                </Tooltip>
+                                <Box display="flex" gap={1} justifyContent="flex-end">
+                                  <Tooltip title={t('accessControl.generateQRForMatch')}>
+                                    <IconButton
+                                      color="primary"
+                                      onClick={() => handleGenerateDeviceMatchQR(status)}
+                                      disabled={deviceMatchQRLoading}
+                                    >
+                                      <QrCode />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Tooltip title={t('accessControl.matchDeviceManually')}>
+                                    <IconButton
+                                      color="secondary"
+                                      onClick={() => handleOpenMatchDialog(status)}
+                                    >
+                                      <PersonAdd />
+                                    </IconButton>
+                                  </Tooltip>
+                                </Box>
                               ) : (
                                 <Tooltip title={t('accessControl.deviceAlreadyMatched')}>
                                   <IconButton disabled>
@@ -462,20 +700,186 @@ const AccessControl = () => {
               )}
             </Paper>
           )}
+
+          {tabValue === 2 && (
+            <Paper 
+              sx={{ 
+                p: 3, 
+                mb: 3,
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+            >
+              <Box display="flex" alignItems="center" gap={2} mb={3}>
+                <PhoneAndroid sx={{ fontSize: 48, color: 'primary.main' }} />
+                <Box>
+                  <Typography variant="h6" gutterBottom>
+                    {t('accessControl.nfcTagManagement')}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('accessControl.nfcTagManagementDescription')}
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box mb={3}>
+                <Button
+                  variant="outlined"
+                  startIcon={<Refresh />}
+                  onClick={loadNfcTagStatus}
+                  disabled={loading}
+                >
+                  {t('common.refresh')}
+                </Button>
+              </Box>
+
+              <TableContainer>
+                <Table key={i18n.language}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>{t('accessControl.employeeName')}</TableCell>
+                      <TableCell>{t('accessControl.employeeEmail')}</TableCell>
+                      <TableCell>{t('accessControl.nfcTagStatus')}</TableCell>
+                      <TableCell>{t('accessControl.nfcTagId')}</TableCell>
+                      <TableCell align="right">{t('common.actions')}</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {nfcTagStatusList.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center">
+                          <Typography variant="body2" color="text.secondary">
+                            {loading ? t('common.loading') : t('accessControl.noEmployeesFound')}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      nfcTagStatusList.map((status) => (
+                        <TableRow key={status.employeeId}>
+                          <TableCell>{status.employeeName}</TableCell>
+                          <TableCell>{status.employeeEmail}</TableCell>
+                          <TableCell>
+                            {status.hasNfcTag ? (
+                              <Chip
+                                label={t('accessControl.assigned')}
+                                color="success"
+                                size="small"
+                                icon={<CheckCircle />}
+                              />
+                            ) : (
+                              <Chip
+                                label={t('accessControl.notAssigned')}
+                                color="warning"
+                                size="small"
+                                icon={<Warning />}
+                              />
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {status.nfcTagId ? (
+                              <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
+                                {status.nfcTagId}
+                              </Typography>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">
+                                -
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell align="right">
+                            {status.hasNfcTag ? (
+                              <Tooltip title={t('accessControl.removeNfcTag')}>
+                                <IconButton
+                                  color="error"
+                                  onClick={() => handleRemoveNfcTag(status)}
+                                  disabled={loading}
+                                >
+                                  <PersonAdd />
+                                </IconButton>
+                              </Tooltip>
+                            ) : (
+                              <Tooltip title={t('accessControl.assignNfcTag')}>
+                                <IconButton
+                                  color="primary"
+                                  onClick={() => handleOpenNfcTagDialog(status)}
+                                  disabled={loading}
+                                >
+                                  <PersonAdd />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          )}
         </Box>
       ) : (
-        <Paper sx={{ p: 3, mb: 3 }}>
+        <Paper 
+          sx={{ 
+            p: 3, 
+            mb: 3,
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+              opacity: 0.8
+            }
+          }}
+        >
           <Box display="flex" alignItems="center" gap={2} mb={2}>
-            <Security sx={{ fontSize: 48, color: 'primary.main' }} />
+            <Box
+              sx={{
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)'
+              }}
+            >
+              <Security sx={{ fontSize: 28, color: 'white' }} />
+            </Box>
             <Box>
-              <Typography variant="h6" gutterBottom>
-                {t('accessControl.systemTitle', 'QR Code Generator')}
+              <Typography 
+                variant="h6"
+                sx={{
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}
+              >
+                {t('accessControl.systemTitle')}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {t(
-                  'accessControl.systemDescription',
-                  'Generate ISO/IEC 18004 compliant QR codes for employee access and identification'
-                )}
+                {t('accessControl.systemDescription')}
               </Typography>
             </Box>
           </Box>
@@ -511,13 +915,22 @@ const AccessControl = () => {
                 startIcon={<QrCode />}
                 onClick={handleGenerateQR}
                 disabled={!selectedEmployeeId}
+                sx={{
+                  borderRadius: 2,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                    transform: 'translateY(-2px)'
+                  }
+                }}
               >
-                {t('accessControl.generateQR', 'Generate QR Code')}
+                {t('accessControl.generateQR')}
               </Button>
 
               <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-                QR codes follow ISO/IEC 18004 standard and can be scanned by any standard QR code
-                reader. The QR code contains employee identification data in JSON format.
+                {t('accessControl.qrCodesFollowStandard')}
               </Typography>
             </Grid>
 
@@ -546,9 +959,73 @@ const AccessControl = () => {
       )}
 
       {/* Match Device Dialog */}
-      <Dialog open={matchDialogOpen} onClose={() => setMatchDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{t('accessControl.matchDeviceWithEmployee')}</DialogTitle>
+      <Dialog open={matchDialogOpen} onClose={() => {
+        setMatchDialogOpen(false)
+        setDeviceMatchQRCode(null)
+        setSelectedEmployeeForQR(null)
+      }} maxWidth="md" fullWidth>
+        <DialogTitle>
+          {deviceMatchQRCode 
+            ? t('accessControl.scanQRWithMobile')
+            : t('accessControl.matchDeviceWithEmployee')}
+        </DialogTitle>
         <DialogContent>
+          {deviceMatchQRCode ? (
+            <Box>
+              {selectedEmployeeForQR && (
+                <Box mb={2}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    {t('accessControl.employee')}:
+                  </Typography>
+                  <Typography variant="h6">
+                    {selectedEmployeeForQR.employeeName}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {selectedEmployeeForQR.employeeEmail}
+                  </Typography>
+                </Box>
+              )}
+              <Box display="flex" flexDirection="column" alignItems="center" gap={2} mb={2}>
+                <Paper sx={{ p: 2, backgroundColor: 'white' }}>
+                  <img 
+                    src={deviceMatchQRCode.image} 
+                    alt="Device Match QR Code" 
+                    style={{ width: '100%', maxWidth: '400px', height: 'auto' }}
+                  />
+                </Paper>
+                <Alert severity="info">
+                  <Typography variant="body2">
+                    {t('accessControl.qrCodeInstructions')}
+                  </Typography>
+                  <Typography variant="body2">
+                    {t('accessControl.qrCodeInstructions2')}
+                  </Typography>
+                  <Typography variant="body2">
+                    {t('accessControl.qrCodeInstructions3')}
+                  </Typography>
+                  <Typography variant="body2">
+                    {t('accessControl.qrCodeInstructions4')}
+                  </Typography>
+                </Alert>
+                <Typography variant="caption" color="text.secondary">
+                  {t('accessControl.qrCodeExpires')}
+                </Typography>
+              </Box>
+              <Box display="flex" gap={2} justifyContent="center" mt={2}>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setDeviceMatchQRCode(null)
+                    setSelectedEmployeeForQR(null)
+                    handleOpenMatchDialog(selectedEmployeeForQR)
+                  }}
+                >
+                  {t('accessControl.manualEntry')}
+                </Button>
+              </Box>
+            </Box>
+          ) : (
+            <>
           {selectedEmployeeForMatch && (
             <Box mb={2}>
               <Typography variant="subtitle2" color="text.secondary">
@@ -571,7 +1048,7 @@ const AccessControl = () => {
             required
             sx={{ mb: 2 }}
             helperText={t('accessControl.deviceIdFormat')}
-            placeholder="550e8400-e29b-41d4-a716-446655440000"
+            placeholder={t('accessControl.deviceIdPlaceholder')}
           />
 
           <TextField
@@ -580,7 +1057,7 @@ const AccessControl = () => {
             value={matchForm.deviceName}
             onChange={(e) => setMatchForm({ ...matchForm, deviceName: e.target.value })}
             sx={{ mb: 2 }}
-            placeholder="e.g., iPhone 13 Pro"
+            placeholder={t('accessControl.deviceNamePlaceholder')}
           />
 
           <FormControl fullWidth sx={{ mb: 2 }}>
@@ -602,7 +1079,7 @@ const AccessControl = () => {
             value={matchForm.osVersion}
             onChange={(e) => setMatchForm({ ...matchForm, osVersion: e.target.value })}
             sx={{ mb: 2 }}
-            placeholder="e.g., iOS 17.2, Android 14"
+            placeholder={t('accessControl.osVersionPlaceholder')}
           />
 
           <TextField
@@ -611,7 +1088,7 @@ const AccessControl = () => {
             value={matchForm.appVersion}
             onChange={(e) => setMatchForm({ ...matchForm, appVersion: e.target.value })}
             sx={{ mb: 2 }}
-            placeholder="e.g., 1.0.0"
+            placeholder={t('accessControl.appVersionPlaceholder')}
           />
 
           <TextField
@@ -621,18 +1098,122 @@ const AccessControl = () => {
             onChange={(e) => setMatchForm({ ...matchForm, deviceFingerprint: e.target.value })}
             placeholder={t('accessControl.additionalSecurityFingerprint')}
           />
+            </>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setMatchDialogOpen(false)}>{t('common.cancel')}</Button>
+          <Button onClick={() => {
+            setMatchDialogOpen(false)
+            setDeviceMatchQRCode(null)
+            setSelectedEmployeeForQR(null)
+          }}>
+            {t('common.cancel')}
+          </Button>
+          {!deviceMatchQRCode && (
+            <Button
+              onClick={handleMatchEmployee}
+              variant="contained"
+              disabled={loading || !matchForm.deviceId}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                },
+                '&:disabled': {
+                  background: 'rgba(0, 0, 0, 0.12)',
+                  color: 'rgba(0, 0, 0, 0.26)'
+                }
+              }}
+            >
+              {loading ? <CircularProgress size={20} /> : t('accessControl.matchDevice')}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* NFC Tag Assignment Dialog */}
+      <Dialog open={nfcTagDialogOpen} onClose={() => {
+        setNfcTagDialogOpen(false)
+        setNfcTagId('')
+        setSelectedEmployeeForNfcTag(null)
+      }} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {t('accessControl.assignNfcTag')}
+        </DialogTitle>
+        <DialogContent>
+          {selectedEmployeeForNfcTag && (
+            <Box mb={2}>
+              <Typography variant="subtitle2" color="text.secondary">
+                {t('accessControl.employee')}:
+              </Typography>
+              <Typography variant="h6">
+                {selectedEmployeeForNfcTag.employeeName}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {selectedEmployeeForNfcTag.employeeEmail}
+              </Typography>
+            </Box>
+          )}
+
+          <TextField
+            fullWidth
+            label={t('accessControl.nfcTagId')}
+            value={nfcTagId}
+            onChange={(e) => setNfcTagId(e.target.value)}
+            required
+            sx={{ mb: 2 }}
+            helperText={t('accessControl.nfcTagIdHelper')}
+            placeholder={t('accessControl.nfcTagIdPlaceholder')}
+          />
+
+          <Alert severity="info" sx={{ mt: 2 }}>
+            <Typography variant="body2">
+              {t('accessControl.nfcTagInstructions')}
+            </Typography>
+            <Typography variant="body2">
+              {t('accessControl.nfcTagInstructions2')}
+            </Typography>
+            <Typography variant="body2">
+              {t('accessControl.nfcTagInstructions3')}
+            </Typography>
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setNfcTagDialogOpen(false)
+            setNfcTagId('')
+            setSelectedEmployeeForNfcTag(null)
+          }}>
+            {t('common.cancel')}
+          </Button>
           <Button
-            onClick={handleMatchEmployee}
+            onClick={handleAssignNfcTag}
             variant="contained"
-            disabled={loading || !matchForm.deviceId}
+            disabled={loading || !nfcTagId.trim()}
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                transform: 'translateY(-2px)'
+              },
+              '&:disabled': {
+                background: 'rgba(0, 0, 0, 0.12)',
+                color: 'rgba(0, 0, 0, 0.26)'
+              }
+            }}
           >
-            {loading ? <CircularProgress size={20} /> : t('accessControl.matchDevice')}
+            {loading ? <CircularProgress size={20} /> : t('accessControl.assignNfcTag')}
           </Button>
         </DialogActions>
       </Dialog>
+      </Box>
     </Box>
   )
 }

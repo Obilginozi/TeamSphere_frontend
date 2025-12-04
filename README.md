@@ -35,26 +35,33 @@ npm run preview
 
 ### Core Features
 - ✅ **Multi-tenant Architecture** - Support multiple companies with data isolation
-- ✅ **Role-based Access Control** - Admin, HR, Employee roles with granular permissions
-- ✅ **QR Code Generation** - ISO/IEC 18004 compliant QR codes with company logo embedding
+- ✅ **Role-based Access Control** - Admin, HR, Department Manager, Employee roles with granular permissions
+- ✅ **QR Code Generation** - ISO/IEC 18004 compliant QR codes with company logo embedding and auto-refresh
 - ✅ **Device Management** - HR interface for matching employee devices with UUID validation
 - ✅ **Access Control** - QR code generator and device matching interface
-- ✅ **Time Tracking** - Clock in/out with various methods
-- ✅ **Leave Management** - Request, approve, track leaves
-- ✅ **Employee Management** - CRUD operations for employees
-- ✅ **Support Tickets** - Internal ticketing system
-- ✅ **Reports & Analytics** - Export to PDF/Excel
+- ✅ **Time Tracking** - Clock in/out with various methods (NFC, QR Code, Manual)
+- ✅ **Leave Management** - Request, approve, track leaves with comprehensive reason tracking
+- ✅ **Employee Management** - CRUD operations for employees with bulk import
+- ✅ **Support Tickets** - Internal ticketing system with SLA management and trend analysis
+- ✅ **Reports & Analytics** - Export to PDF/Excel with customizable dashboards
+- ✅ **Department Management** - Department-based announcements, employee management, and ticket routing
+- ✅ **Profile Approval System** - HR approval workflow for employee and department manager profile changes
+- ✅ **Company Feature Flags** - Dynamic feature toggling per company with XML-based configuration
+- ✅ **Shift Management** - 24-hour operations support with shift scheduling and rotation
+- ✅ **Company Calendar** - Event management, meetings, training, and holidays
+- ✅ **Accounting Integration** - Employee accounting and payment management
+- ✅ **Notifications** - Real-time notifications for tickets, leaves, and announcements
+- ✅ **System Monitoring** - Health checks, metrics, and performance monitoring
 
-### New Features (v2.1.0)
+### Advanced Features
 
-- ✨ **QR Code Display Component**: Reusable component for displaying QR codes with download and refresh
-- ✨ **Access Control Page**: 
-  - QR Code Generator tab for generating employee QR codes
-  - Device Matching tab for HR to match employee devices
-  - Warning system for employees without registered devices
-  - UUID validation for device IDs
-- ✨ **API Path Fixes**: Resolved double `/api/api` path issues
-- ✨ **Enhanced Error Handling**: Improved error messages and user feedback
+- ✅ **Fraud Detection** - Comprehensive fraud detection with geofencing, velocity checks, and device fingerprinting
+- ✅ **Trend Analysis** - Ticket trend analysis with predictive analytics (7/30/90 day comparisons)
+- ✅ **Bulk Operations** - Excel import/export for employees with validation and error handling
+- ✅ **Multi-language Support** - i18n ready with English and Turkish support
+- ✅ **Responsive Design** - Mobile-first responsive design with PWA capabilities
+- ✅ **Dynamic Clock-In Methods** - Company-configurable clock-in methods with automatic selection
+- ✅ **Department-Based Features** - Department managers can manage their department, send announcements, and handle tickets
 
 ## 🏗️ Architecture
 
@@ -82,10 +89,18 @@ frontend/
 │   │   ├── AccessControl.jsx       # QR generator & device matching
 │   │   ├── Employees.jsx           # Employee management
 │   │   ├── DeviceManagement.jsx    # Device management
+│   │   ├── ProfileApprovals.jsx    # HR profile approval interface
+│   │   ├── CompanyFeatureFlags.jsx # Company feature flag management
+│   │   ├── ShiftManagement.jsx     # Shift scheduling and management
+│   │   ├── CompanyCalendar.jsx     # Company calendar and events
+│   │   ├── Tickets.jsx              # Support ticket management
+│   │   ├── LeaveRequests.jsx       # Leave request management
+│   │   ├── ReportsAnalytics.jsx    # Reports and analytics dashboard
 │   │   └── ...
 │   ├── contexts/            # React contexts
 │   │   ├── AuthContext.jsx         # Authentication context
-│   │   └── LanguageContext.jsx     # i18n context
+│   │   ├── LanguageContext.jsx     # i18n context
+│   │   └── FeatureFlagContext.jsx  # Company feature flags context
 │   ├── services/           # API services
 │   │   └── api.js                 # Axios instance & API calls
 │   ├── utils/              # Utility functions
@@ -198,6 +213,57 @@ Main page for QR code generation and device matching (HR/Admin only):
 // Available for HR and ADMIN roles only
 ```
 
+### ProfileApprovals Page
+
+HR interface for managing employee and department manager profile change requests:
+
+**Features:**
+- View all pending profile change requests
+- See detailed changes (current vs. requested values)
+- Approve or reject requests with optional review notes
+- View complete history of all profile change requests
+- Automatic application of approved changes
+
+**Usage:**
+```jsx
+// Navigate to /profile-approvals
+// Available for HR and ADMIN roles only
+```
+
+### CompanyFeatureFlags Page
+
+Admin interface for managing company-specific feature flags:
+
+**Features:**
+- Enable/disable features per company
+- XML-based feature flag storage
+- Dynamic route protection based on flags
+- Sidebar menu filtering
+- Real-time feature flag updates
+
+**Usage:**
+```jsx
+// Navigate to /company-feature-flags
+// Available for ADMIN role only
+```
+
+### Department Manager Features
+
+Department Managers have unique capabilities combining employee and management roles:
+
+**Employee Capabilities:**
+- Clock in/out using NFC, QR Code, or Manual methods
+- View personal time logs and leave requests
+- Access personal profile and device management
+
+**Management Capabilities:**
+- **Department Announcements**: Send announcements to department employees
+- **Employee Management**: View and manage employees in assigned department
+- **Hiring**: Create new employees (automatically assigned to their department)
+- **Ticket Management**: Receive and respond to tickets from department employees
+- **Department Isolation**: All interactions restricted to their department only
+```
+
 ## 🔧 Configuration
 
 ### Environment Variables
@@ -292,9 +358,10 @@ kill -9 $(lsof -t -i:5173)
 
 ## 📚 Documentation
 
-- **[Frontend Developer Guide](../infrastructure/docs/FRONTEND_DEVELOPER_GUIDE.md)** - Complete React development guide
+- **[Frontend Developer Guide](FRONTEND_DEVELOPER_GUIDE.md)** - Complete React development guide
 - **[Backend API Documentation](../backend/POSTMAN_API_TESTING_GUIDE.md)** - API testing guide
 - **[Validation Guide](VALIDATION_GUIDE.md)** - Form validation patterns
+- **[Main Project README](../README.md)** - Complete project documentation
 
 ## 🔐 Security
 
@@ -315,9 +382,39 @@ MIT License - see [LICENSE](../LICENSE) file for details.
 ---
 
 **Last Updated**: January 2025  
-**Version**: 2.1.0
+**Version**: 3.1.0
 
-### Recent Updates (v2.1.0)
+### Recent Updates (v3.1.0)
+
+#### ✨ New Features
+- ✨ **Department Manager Role**: New role for department-level management
+  - Department managers can send announcements to their department employees
+  - Manage employees within their assigned department
+  - Handle tickets from department employees
+  - Create tickets to HR (not to Admin)
+  - Perform hiring operations for their department
+- ✨ **Profile Approval System**: HR review and approval workflow for employee profile changes
+  - Employees and Department Managers submit profile change requests
+  - HR reviews and approves/rejects changes through dedicated interface
+  - Complete change history tracking with review notes
+- ✨ **Company Feature Flags**: Dynamic feature toggling per company
+  - XML-based feature flag storage
+  - Dynamic route protection based on flags
+  - Sidebar menu filtering
+- ✨ **Shift Management**: 24-hour operations support with shift scheduling
+- ✨ **Company Calendar**: Event management, meetings, training, and holidays
+- ✨ **Trend Analysis**: Ticket trend analysis with predictive analytics
+- ✨ **Fraud Detection**: Comprehensive fraud detection interface
+
+#### 🔧 Improvements
+- 🔧 **QR Code Display Component**: Reusable component with download and refresh
+- 🔧 **Access Control Page**: QR generator and device matching interface
+- 🔧 **Device Matching**: HR can match employee devices with UUID validation
+- 🔧 **API Path Fixes**: Resolved double `/api/api` path issues
+- 📝 **Enhanced Error Handling**: Better user feedback and error messages
+- 📝 **Console Log Cleanup**: Removed unnecessary console.log statements for production
+
+### Previous Updates (v2.1.0)
 
 - ✨ **QR Code Display Component**: Reusable component with download and refresh
 - ✨ **Access Control Page**: QR generator and device matching interface

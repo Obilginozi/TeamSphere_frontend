@@ -64,7 +64,7 @@ const Departments = () => {
       setDepartments(response.data.data || [])
     } catch (err) {
       console.error('Failed to fetch departments:', err)
-      setError('Failed to load departments. Please try again.')
+      setError(t('departments.failedToLoad'))
     } finally {
       setLoading(false)
     }
@@ -73,36 +73,36 @@ const Departments = () => {
   const handleAdd = async () => {
     try {
       await api.post('/department', formData)
-      setSuccess('Department created successfully!')
+      setSuccess(t('departments.createdSuccessfully'))
       setAddDialogOpen(false)
       setFormData({ name: '', description: '', managerId: '' })
       await fetchDepartments()
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create department. Please try again.')
+      setError(err.response?.data?.message || t('departments.failedToCreate'))
     }
   }
 
   const handleEdit = async () => {
     try {
       await api.put(`/department/${selectedDepartment.id}`, formData)
-      setSuccess('Department updated successfully!')
+      setSuccess(t('departments.updatedSuccessfully'))
       setEditDialogOpen(false)
       setSelectedDepartment(null)
       setFormData({ name: '', description: '', managerId: '' })
       await fetchDepartments()
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update department. Please try again.')
+      setError(err.response?.data?.message || t('departments.failedToUpdate'))
     }
   }
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this department?')) {
+    if (window.confirm(t('departments.confirmDelete'))) {
       try {
         await api.delete(`/department/${id}`)
-        setSuccess('Department deleted successfully!')
+        setSuccess(t('departments.deletedSuccessfully'))
         await fetchDepartments()
       } catch (err) {
-        setError(err.response?.data?.message || 'Failed to delete department. Please try again.')
+        setError(err.response?.data?.message || t('departments.failedToDelete'))
       }
     }
   }
@@ -133,7 +133,7 @@ const Departments = () => {
       <Box mb={4} display="flex" justifyContent="space-between" alignItems="center">
         <Box>
           <Typography variant="h4" gutterBottom>
-            Departments
+            {t('pageTitles.departments')}
           </Typography>
           <Typography variant="body2" color="textSecondary">
             Manage organizational structure and teams
@@ -153,6 +153,16 @@ const Departments = () => {
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => setAddDialogOpen(true)}
+              sx={{
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                  transform: 'translateY(-2px)'
+                }
+              }}
             >
               Add Department
             </Button>
@@ -369,7 +379,22 @@ const Departments = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleAdd} variant="contained">Create Department</Button>
+          <Button 
+            onClick={handleAdd} 
+            variant="contained"
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
+            Create Department
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -410,7 +435,22 @@ const Departments = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleEdit} variant="contained">Update Department</Button>
+          <Button 
+            onClick={handleEdit} 
+            variant="contained"
+            sx={{
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                transform: 'translateY(-2px)'
+              }
+            }}
+          >
+            Update Department
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

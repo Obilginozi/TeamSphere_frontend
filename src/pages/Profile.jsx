@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useForm, FormProvider } from 'react-hook-form'
-import { getErrorMessage, logSuccessDetails } from '../utils/errorHandler'
+import { getErrorMessage } from '../utils/errorHandler'
 import { 
   Box, 
   Typography, 
@@ -30,7 +30,7 @@ import {
 } from '@mui/material'
 import { Person, Edit, Save, Cancel, Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
-import { useLanguage } from '../contexts/LanguageContext'
+import { useTranslation } from 'react-i18next'
 import api from '../services/api'
 import ValidatedTextField from '../components/ValidatedTextField'
 import ValidatedDatePicker from '../components/ValidatedDatePicker'
@@ -38,8 +38,17 @@ import { fieldValidations, validationRules } from '../utils/validation'
 
 const Profile = () => {
   const { user, setUser, selectedCompanyId } = useAuth()
-  const { t } = useLanguage()
+  const { t, i18n } = useTranslation()
   const [openDialog, setOpenDialog] = useState(false)
+  
+  // Wrapper for setOpenDialog to prevent accidental closes
+  const setOpenDialogSafe = (value) => {
+    if (value === false && shouldKeepDialogOpenRef.current) {
+      // Don't close if ref says it should stay open (unless explicitly cancelled)
+      return
+    }
+    setOpenDialog(value)
+  }
   const [openCompanyDialog, setOpenCompanyDialog] = useState(false)
   const [loading, setLoading] = useState(false)
   const [companyLoading, setCompanyLoading] = useState(false)
@@ -85,6 +94,9 @@ const Profile = () => {
   const [profilePicturePreview, setProfilePicturePreview] = useState(null)
   const [uploadingPicture, setUploadingPicture] = useState(false)
   const [profilePictureObjectUrl, setProfilePictureObjectUrl] = useState(null)
+  
+  // Use ref to track if dialog should stay open (prevents state loss during re-renders)
+  const shouldKeepDialogOpenRef = useRef(false)
   
   const methods = useForm({
     defaultValues: {
@@ -162,6 +174,21 @@ const Profile = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, user?.profilePictureUrl])
   
+  // Debug: Log when dialog state changes
+  useEffect(() => {
+    // CRITICAL: If dialog closed but ref says it should be open, restore it
+    // Don't check loading state - restore immediately if ref says it should be open
+    if (!openDialog && shouldKeepDialogOpenRef.current) {
+      // Use multiple strategies to ensure restoration
+      setOpenDialogSafe(true)
+      setTimeout(() => {
+        if (shouldKeepDialogOpenRef.current) {
+          setOpenDialogSafe(true)
+        }
+      }, 0)
+    }
+  }, [openDialog, loading, error, user?.role])
+  
   const fetchUserProfile = async (skipFormReset = false) => {
     try {
       const response = await api.get('/users/profile')
@@ -173,6 +200,9 @@ const Profile = () => {
       }
       
       // Update user context with full profile data only if it actually changed
+      // Use a ref to track if we're in the middle of editing to prevent dialog from closing
+      const wasEditing = openDialog
+      
       setUser(prevUser => {
         // Check if data actually changed to avoid infinite loops
         if (prevUser && 
@@ -186,6 +216,14 @@ const Profile = () => {
           ...userData
         }
       })
+      
+      // Ensure dialog stays open after user update
+      if (wasEditing) {
+        // Use setTimeout to ensure this runs after the state update
+        setTimeout(() => {
+          setOpenDialog(true)
+        }, 0)
+      }
       
       // Only reset form if dialog is not open and skipFormReset is false
       // We check openDialog state directly - if it's true, the form was already populated in handleEditClick
@@ -262,7 +300,6 @@ const Profile = () => {
       if (response.data && response.data.data) {
         setEmployeeData(response.data.data)
         if (process.env.NODE_ENV === 'development') {
-          console.log('Employee data fetched:', response.data.data)
         }
       }
     } catch (error) {
@@ -286,10 +323,6 @@ const Profile = () => {
       
       if (response.data && response.data.data) {
         setCompany(response.data.data)
-        // Only log in development mode to avoid console spam
-        if (process.env.NODE_ENV === 'development') {
-          logSuccessDetails(response, 'Company fetched', null)
-        }
         
         // Only reset form if dialog is not open and skipFormReset is false
         if (!skipFormReset && !openCompanyDialog) {
@@ -309,7 +342,6 @@ const Profile = () => {
         }
       } else {
         if (process.env.NODE_ENV === 'development') {
-          console.warn('Unexpected company response structure:', response.data)
         }
         setError(t('profile.invalidResponseFormat'))
         setCompany(null)
@@ -473,7 +505,6 @@ const Profile = () => {
       setError(null)
 
       const response = await api.post('/users/hr-users', hrFormData)
-      logSuccessDetails(response, 'HR user added', hrFormData)
       setSuccess(t('profile.hrUserAddedSuccessfully'))
       
       // Reset form
@@ -531,7 +562,6 @@ const Profile = () => {
       const response = await api.put('/companies/my-company', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
-      logSuccessDetails(response, 'Company updated', { company: companyData, hasLogo: !!companyLogo })
       setCompany(response.data.data)
       setSuccess(t('profile.companyUpdatedSuccessfully'))
       setOpenCompanyDialog(false)
@@ -717,7 +747,9 @@ const Profile = () => {
     setProfilePicturePreview(null)
     
     // Open dialog immediately so user sees it's loading
-    setOpenDialog(true)
+    // This must be called synchronously before any async operations
+    shouldKeepDialogOpenRef.current = true
+    setOpenDialogSafe(true)
     setLoading(true)
     
     try {
@@ -749,25 +781,39 @@ const Profile = () => {
       
       // Build employee fields if user is an employee
       let employeeFields = {}
-      if (user?.role === 'EMPLOYEE' && currentEmployeeData) {
-        employeeFields = {
-          idCardNumber: currentEmployeeData?.idCardNumber || '',
-          birthDate: currentEmployeeData?.birthDate || '',
-          emergencyContact: currentEmployeeData?.emergencyContact || '',
-          mobile: currentEmployeeData?.mobile || userData?.mobile || '',
-          address: currentEmployeeData?.address || userData?.address || '',
-          position: currentEmployeeData?.position || userData?.position || '',
-          department: currentEmployeeData?.department?.name || userData?.department || '',
-          hireDate: currentEmployeeData?.hireDate || userData?.hireDate || ''
+      if (user?.role === 'EMPLOYEE') {
+        if (currentEmployeeData) {
+          employeeFields = {
+            idCardNumber: currentEmployeeData?.idCardNumber || '',
+            birthDate: currentEmployeeData?.birthDate || '',
+            emergencyContact: currentEmployeeData?.emergencyContact || '',
+            mobile: currentEmployeeData?.mobile || userData?.mobile || '',
+            address: currentEmployeeData?.address || userData?.address || '',
+            position: currentEmployeeData?.position || userData?.position || '',
+            department: currentEmployeeData?.department?.name || userData?.department || '',
+            hireDate: currentEmployeeData?.hireDate || userData?.hireDate || ''
+          }
+        } else {
+          // If no employee data, use user data as fallback
+          employeeFields = {
+            idCardNumber: '',
+            birthDate: '',
+            emergencyContact: '',
+            mobile: userData?.mobile || '',
+            address: userData?.address || '',
+            position: userData?.position || '',
+            department: userData?.department || '',
+            hireDate: userData?.hireDate || ''
+          }
         }
       }
       
       // Populate form with fetched user data
-      methods.reset({
+      const formData = {
         firstName: userData?.firstName || '',
         lastName: userData?.lastName || '',
         email: userData?.email || '',
-        phone: userData?.phone || employeeFields.phone || '',
+        phone: userData?.phone || '',
         mobile: employeeFields.mobile || userData?.mobile || '',
         address: employeeFields.address || userData?.address || '',
         city: userData?.city || '',
@@ -780,55 +826,75 @@ const Profile = () => {
         idCardNumber: employeeFields.idCardNumber || '',
         birthDate: employeeFields.birthDate || '',
         emergencyContact: employeeFields.emergencyContact || ''
-      })
+      }
+      methods.reset(formData)
       
       // Fetch profile picture as blob if user has one
       if (userData?.profilePictureUrl) {
         await fetchProfilePictureAsBlob(userData.profilePictureUrl)
       }
       
-      // Update user context
-      setUser(prevUser => ({
-        ...prevUser,
-        ...userData
-      }))
+      // CRITICAL: DO NOT call setUser here in handleEditClick!
+      // setUser triggers useEffect([user, user?.profilePictureUrl]) which can cause re-renders
+      // that reset the dialog state. The form is already populated with the latest data,
+      // so we don't need to update user context here. We'll update it only when form is submitted.
     } catch (error) {
       console.error('Failed to fetch user profile:', error)
+      // Ensure dialog stays open even on error
+      shouldKeepDialogOpenRef.current = true
+      setOpenDialogSafe(true)
       setError(t('profile.failedToLoadProfileData'))
       
       // Fallback to current user data from context
       let fallbackEmployeeFields = {}
-      if (user?.role === 'EMPLOYEE' && employeeData) {
-        fallbackEmployeeFields = {
-          idCardNumber: employeeData?.idCardNumber || '',
-          birthDate: employeeData?.birthDate || '',
-          emergencyContact: employeeData?.emergencyContact || '',
-          mobile: employeeData?.mobile || user?.mobile || '',
-          address: employeeData?.address || user?.address || '',
-          position: employeeData?.position || user?.position || '',
-          department: employeeData?.department?.name || user?.department || '',
-          hireDate: employeeData?.hireDate || user?.hireDate || ''
+      if (user?.role === 'EMPLOYEE') {
+        if (employeeData) {
+          fallbackEmployeeFields = {
+            idCardNumber: employeeData?.idCardNumber || '',
+            birthDate: employeeData?.birthDate || '',
+            emergencyContact: employeeData?.emergencyContact || '',
+            mobile: employeeData?.mobile || user?.mobile || '',
+            address: employeeData?.address || user?.address || '',
+            position: employeeData?.position || user?.position || '',
+            department: employeeData?.department?.name || user?.department || '',
+            hireDate: employeeData?.hireDate || user?.hireDate || ''
+          }
+        } else {
+          // If no employee data, use empty values for employee-specific fields
+          fallbackEmployeeFields = {
+            idCardNumber: '',
+            birthDate: '',
+            emergencyContact: '',
+            mobile: user?.mobile || '',
+            address: user?.address || '',
+            position: user?.position || '',
+            department: user?.department || '',
+            hireDate: user?.hireDate || ''
+          }
         }
       }
       
-      methods.reset({
-        firstName: user?.firstName || '',
-        lastName: user?.lastName || '',
-        email: user?.email || '',
-        phone: user?.phone || '',
-        mobile: fallbackEmployeeFields.mobile || user?.mobile || '',
-        address: fallbackEmployeeFields.address || user?.address || '',
-        city: user?.city || '',
-        state: user?.state || '',
-        postalCode: user?.postalCode || '',
-        country: user?.country || '',
-        position: fallbackEmployeeFields.position || user?.position || '',
-        department: fallbackEmployeeFields.department || user?.department || '',
-        hireDate: fallbackEmployeeFields.hireDate || user?.hireDate || '',
-        idCardNumber: fallbackEmployeeFields.idCardNumber || '',
-        birthDate: fallbackEmployeeFields.birthDate || '',
-        emergencyContact: fallbackEmployeeFields.emergencyContact || ''
-      })
+      // Ensure we have user data before resetting form
+      if (user) {
+        methods.reset({
+          firstName: user?.firstName || '',
+          lastName: user?.lastName || '',
+          email: user?.email || '',
+          phone: user?.phone || '',
+          mobile: fallbackEmployeeFields.mobile || user?.mobile || '',
+          address: fallbackEmployeeFields.address || user?.address || '',
+          city: user?.city || '',
+          state: user?.state || '',
+          postalCode: user?.postalCode || '',
+          country: user?.country || '',
+          position: fallbackEmployeeFields.position || user?.position || '',
+          department: fallbackEmployeeFields.department || user?.department || '',
+          hireDate: fallbackEmployeeFields.hireDate || user?.hireDate || '',
+          idCardNumber: fallbackEmployeeFields.idCardNumber || '',
+          birthDate: fallbackEmployeeFields.birthDate || '',
+          emergencyContact: fallbackEmployeeFields.emergencyContact || ''
+        })
+      }
     } finally {
       setLoading(false)
     }
@@ -853,17 +919,27 @@ const Profile = () => {
       }
       
       const response = await api.put('/users/profile', userData)
-      logSuccessDetails(response, 'Profile updated', userData)
       
-      // Fetch updated profile and employee data to get all fields (skip form reset since dialog is closing)
-      await fetchUserProfile(true)
-      if (user?.role === 'EMPLOYEE') {
-        await fetchEmployeeData()
+      // For employees, check if a pending change request was created
+      if (user?.role === 'EMPLOYEE' && response.data && response.data.message && 
+          response.data.message.includes('reviewed by HR')) {
+        setSuccess(t('profile.changeRequestSubmitted') || 'Profile change request submitted successfully. It will be reviewed by HR.')
+        shouldKeepDialogOpenRef.current = false
+        setOpenDialogSafe(false)
+        setActiveTab(0)
+      } else {
+        // For HR/Admin, update directly
+        // Fetch updated profile and employee data to get all fields (skip form reset since dialog is closing)
+        await fetchUserProfile(true)
+        if (user?.role === 'EMPLOYEE') {
+          await fetchEmployeeData()
+        }
+        
+        setSuccess(t('profile.profileUpdatedSuccessfully'))
+        shouldKeepDialogOpenRef.current = false
+        setOpenDialogSafe(false)
+        setActiveTab(0)
       }
-      
-      setSuccess(t('profile.profileUpdatedSuccessfully'))
-      setOpenDialog(false)
-      setActiveTab(0)
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000)
@@ -875,6 +951,7 @@ const Profile = () => {
   }
 
   const handleCancel = () => {
+    shouldKeepDialogOpenRef.current = false
     // Reset form to current user data
     if (user) {
       // For employees, also use employee data if available
@@ -911,7 +988,8 @@ const Profile = () => {
     })
     }
     setActiveTab(0)
-    setOpenDialog(false)
+    shouldKeepDialogOpenRef.current = false
+    setOpenDialogSafe(false)
     setError(null)
     setPasswordFormData({
       oldPassword: '',
@@ -944,7 +1022,6 @@ const Profile = () => {
         oldPassword: passwordFormData.oldPassword,
         newPassword: passwordFormData.newPassword
       })
-      logSuccessDetails(response, 'Password changed', { hasOldPassword: !!passwordFormData.oldPassword, hasNewPassword: !!passwordFormData.newPassword })
 
       setSuccess(t('profile.passwordChangedSuccessfully'))
       
@@ -964,10 +1041,10 @@ const Profile = () => {
   }
 
   return (
-    <Box>
+      <Box key={`profile-${i18n.language}`}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">
-          {t('navigation.profile')}
+          {t('pageTitles.profile')}
         </Typography>
         <Button
           variant="outlined"
@@ -1036,20 +1113,20 @@ const Profile = () => {
           {user && user.role === 'HR' && (
             <Paper sx={{ p: 3, mb: 3 }}>
               <Typography variant="h6" gutterBottom>
-                Company Information
+                {t('profile.companyInfo')}
               </Typography>
               {companyLoading ? (
                 <Box sx={{ textAlign: 'center', py: 3 }}>
                   <CircularProgress />
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                    Loading company information...
+                    {t('profile.loadingCompanyInformation')}
                   </Typography>
                 </Box>
               ) : company ? (
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
                     <Typography variant="body2" color="text.secondary">
-                      Company Name
+                      {t('profile.companyName')}
                     </Typography>
                     <Typography variant="body1">
                       {company?.name || t('profile.notProvided')}
@@ -1057,7 +1134,7 @@ const Profile = () => {
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="body2" color="text.secondary">
-                      Description
+                      {t('profile.description')}
                     </Typography>
                     <Typography variant="body1">
                       {company?.description || t('profile.notProvided')}
@@ -1065,7 +1142,7 @@ const Profile = () => {
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">
-                      Contact Email
+                      {t('profile.contactEmail')}
                     </Typography>
                     <Typography variant="body1">
                       {company?.contactEmail || t('profile.notProvided')}
@@ -1073,7 +1150,7 @@ const Profile = () => {
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">
-                      Phone
+                      {t('profile.phone')}
                     </Typography>
                     <Typography variant="body1">
                       {company?.phone || t('profile.notProvided')}
@@ -1081,7 +1158,7 @@ const Profile = () => {
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="body2" color="text.secondary">
-                      Address
+                      {t('profile.address')}
                     </Typography>
                     <Typography variant="body1">
                       {company?.address || t('profile.notProvided')}
@@ -1089,7 +1166,7 @@ const Profile = () => {
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">
-                      City
+                      {t('profile.city')}
                     </Typography>
                     <Typography variant="body1">
                       {company?.city || t('profile.notProvided')}
@@ -1097,7 +1174,7 @@ const Profile = () => {
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">
-                      State
+                      {t('profile.state')}
                     </Typography>
                     <Typography variant="body1">
                       {company?.state || t('profile.notProvided')}
@@ -1105,7 +1182,7 @@ const Profile = () => {
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">
-                      Postal Code
+                      {t('profile.postalCode')}
                     </Typography>
                     <Typography variant="body1">
                       {company?.postalCode || t('profile.notProvided')}
@@ -1113,7 +1190,7 @@ const Profile = () => {
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">
-                      Country
+                      {t('profile.country')}
                     </Typography>
                     <Typography variant="body1">
                       {company?.country || t('profile.notProvided')}
@@ -1123,7 +1200,7 @@ const Profile = () => {
               ) : (
                 <Alert severity="warning" sx={{ mt: 2 }}>
                   <Typography variant="body2">
-                    Company information is not available. Please check the console for details or contact support.
+                    {t('profile.companyInformationNotAvailable')}
                   </Typography>
                 </Alert>
               )}
@@ -1132,13 +1209,13 @@ const Profile = () => {
           
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              User Information
+              {t('profile.userInfo')}
             </Typography>
             {user?.role === 'EMPLOYEE' && employeeLoading && (
               <Box sx={{ textAlign: 'center', py: 2 }}>
                 <CircularProgress size={24} />
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  Loading employee information...
+                  {t('profile.loadingEmployeeInformation')}
                 </Typography>
               </Box>
             )}
@@ -1146,12 +1223,12 @@ const Profile = () => {
               {/* Personal Information */}
               <Grid item xs={12}>
                 <Typography variant="subtitle1" sx={{ mb: 2, color: 'primary.main', fontWeight: 'bold' }}>
-                  Personal Information
+                  {t('profile.personalInfo')}
                 </Typography>
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="body2" color="text.secondary">
-                  First Name
+                  {t('profile.firstName')}
                 </Typography>
                 <Typography variant="body1">
                   {user?.firstName || t('profile.notProvided')}
@@ -1159,7 +1236,7 @@ const Profile = () => {
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="body2" color="text.secondary">
-                  Last Name
+                  {t('profile.lastName')}
                 </Typography>
                 <Typography variant="body1">
                   {user?.lastName || t('profile.notProvided')}
@@ -1167,7 +1244,7 @@ const Profile = () => {
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="body2" color="text.secondary">
-                  Email
+                  {t('profile.email')}
                 </Typography>
                 <Typography variant="body1">
                   {user?.email || t('profile.notProvided')}
@@ -1176,7 +1253,7 @@ const Profile = () => {
               {user?.role === 'EMPLOYEE' && employeeData && (
                 <Grid item xs={6}>
                   <Typography variant="body2" color="text.secondary">
-                    Employee ID
+                    {t('profile.employeeId')}
                   </Typography>
                   <Typography variant="body1">
                     {employeeData?.employeeId || t('profile.notProvided')}
@@ -1186,7 +1263,7 @@ const Profile = () => {
               {user?.role === 'EMPLOYEE' && employeeData && (
                 <Grid item xs={6}>
                   <Typography variant="body2" color="text.secondary">
-                    ID Card Number
+                    {t('profile.idCardNumber')}
                   </Typography>
                   <Typography variant="body1">
                     {employeeData?.idCardNumber || t('profile.notProvided')}
@@ -1195,7 +1272,7 @@ const Profile = () => {
               )}
               <Grid item xs={6}>
                 <Typography variant="body2" color="text.secondary">
-                  Phone
+                  {t('profile.phone')}
                 </Typography>
                 <Typography variant="body1">
                   {user?.phone || (user?.role === 'EMPLOYEE' && employeeData?.phone) || t('profile.notProvided')}
@@ -1203,7 +1280,7 @@ const Profile = () => {
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="body2" color="text.secondary">
-                  Mobile
+                  {t('profile.mobile')}
                 </Typography>
                 <Typography variant="body1">
                   {(user?.role === 'EMPLOYEE' && employeeData?.mobile) || user?.mobile || t('profile.notProvided')}
@@ -1212,7 +1289,7 @@ const Profile = () => {
               {user?.role === 'EMPLOYEE' && employeeData && employeeData.birthDate && (
                 <Grid item xs={6}>
                   <Typography variant="body2" color="text.secondary">
-                    Birth Date
+                    {t('profile.birthDate')}
                   </Typography>
                   <Typography variant="body1">
                     {new Date(employeeData.birthDate).toLocaleDateString() || t('profile.notProvided')}
@@ -1222,7 +1299,7 @@ const Profile = () => {
               {user?.role === 'EMPLOYEE' && employeeData && employeeData.emergencyContact && (
                 <Grid item xs={6}>
                   <Typography variant="body2" color="text.secondary">
-                    Emergency Contact
+                    {t('profile.emergencyContact')}
                   </Typography>
                   <Typography variant="body1">
                     {employeeData.emergencyContact || t('profile.notProvided')}
@@ -1235,12 +1312,12 @@ const Profile = () => {
                 <>
                   <Grid item xs={12} sx={{ mt: 2 }}>
                     <Typography variant="subtitle1" sx={{ mb: 2, color: 'primary.main', fontWeight: 'bold' }}>
-                      Address Information
+                      {t('profile.addressInformation')}
                     </Typography>
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="body2" color="text.secondary">
-                      Address
+                      {t('profile.address')}
                     </Typography>
                     <Typography variant="body1">
                       {(user?.role === 'EMPLOYEE' && employeeData?.address) || user?.address || t('profile.notProvided')}
@@ -1248,7 +1325,7 @@ const Profile = () => {
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">
-                      City
+                      {t('profile.city')}
                     </Typography>
                     <Typography variant="body1">
                       {user?.city || t('profile.notProvided')}
@@ -1256,7 +1333,7 @@ const Profile = () => {
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">
-                      State
+                      {t('profile.state')}
                     </Typography>
                     <Typography variant="body1">
                       {user?.state || t('profile.notProvided')}
@@ -1264,7 +1341,7 @@ const Profile = () => {
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">
-                      Postal Code
+                      {t('profile.postalCode')}
                     </Typography>
                     <Typography variant="body1">
                       {user?.postalCode || t('profile.notProvided')}
@@ -1272,7 +1349,7 @@ const Profile = () => {
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">
-                      Country
+                      {t('profile.country')}
                     </Typography>
                     <Typography variant="body1">
                       {user?.country || t('profile.notProvided')}
@@ -1286,7 +1363,7 @@ const Profile = () => {
                 <>
                   <Grid item xs={12} sx={{ mt: 2 }}>
                     <Typography variant="subtitle1" sx={{ mb: 2, color: 'primary.main', fontWeight: 'bold' }}>
-                      Work Information
+                      {t('profile.workInfo')}
                     </Typography>
                   </Grid>
                   {/* Position and Department - Hidden for HR users */}
@@ -1294,7 +1371,7 @@ const Profile = () => {
                     <>
                       <Grid item xs={6}>
                         <Typography variant="body2" color="text.secondary">
-                          Position
+                          {t('profile.position')}
                         </Typography>
                         <Typography variant="body1">
                           {(user?.role === 'EMPLOYEE' && employeeData?.position) || user?.position || t('profile.notProvided')}
@@ -1302,7 +1379,7 @@ const Profile = () => {
                       </Grid>
                       <Grid item xs={6}>
                         <Typography variant="body2" color="text.secondary">
-                          Department
+                          {t('profile.department')}
                         </Typography>
                         <Typography variant="body1">
                           {(user?.role === 'EMPLOYEE' && employeeData?.department?.name) || user?.department || t('profile.notProvided')}
@@ -1313,7 +1390,7 @@ const Profile = () => {
                   {user?.role !== 'HR' && user?.role !== 'ADMIN' && (
                     <Grid item xs={6}>
                       <Typography variant="body2" color="text.secondary">
-                        Hire Date
+                        {t('profile.hireDate')}
                       </Typography>
                       <Typography variant="body1">
                         {(user?.role === 'EMPLOYEE' && employeeData?.hireDate ? new Date(employeeData.hireDate).toLocaleDateString() : null) || (user?.hireDate ? new Date(user.hireDate).toLocaleDateString() : null) || t('profile.notProvided')}
@@ -1324,7 +1401,7 @@ const Profile = () => {
               )}
               <Grid item xs={6}>
                 <Typography variant="body2" color="text.secondary">
-                  Role
+                  {t('profile.role')}
                 </Typography>
                 <Typography variant="body1">
                   {t(`roles.${user?.role?.toLowerCase()}`)}
@@ -1338,17 +1415,71 @@ const Profile = () => {
       {/* Edit Profile Dialog */}
       <Dialog 
         open={openDialog} 
-        onClose={handleCancel} 
+        onClose={(event, reason) => {
+          // Don't close if we're still loading
+          if (loading) {
+            return
+          }
+          // Only close if user explicitly wants to close (click outside or ESC key)
+          if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
+            handleCancel()
+          }
+        }}
+        disableEscapeKeyDown={loading}
         maxWidth="md" 
         fullWidth
+        PaperProps={{
+          sx: {
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+              opacity: 0.8
+            }
+          }
+        }}
       >
         <FormProvider {...methods}>
-          <Box component="form" onSubmit={methods.handleSubmit(onSubmit)}>
-            <DialogTitle>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Edit sx={{ mr: 1 }} />
+          <Box 
+            component="form" 
+            onSubmit={(e) => {
+              e.preventDefault()
+              methods.handleSubmit(onSubmit)(e)
+            }}
+            onKeyDown={(e) => {
+              // Prevent ESC key from closing dialog during loading
+              if (e.key === 'Escape' && loading) {
+                e.preventDefault()
+                e.stopPropagation()
+              }
+            }}
+          >
+            <DialogTitle
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                fontWeight: 700,
+                fontSize: '1.5rem',
+                pb: 2
+              }}
+            >
+              <Edit sx={{ mr: 1, color: '#667eea' }} />
                 {t('profile.editUserInformation')}
-              </Box>
             </DialogTitle>
             <DialogContent>
               {loading ? (
@@ -1364,6 +1495,7 @@ const Profile = () => {
                   sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
                   indicatorColor="primary"
                   textColor="primary"
+                  key={`profile-tabs-${i18n.language}`}
                 >
               <Tab label={t('profile.personalInfo')} />
               {user?.role !== 'HR' && user?.role !== 'ADMIN' && <Tab label={t('profile.addressTab')} />}
@@ -1410,7 +1542,7 @@ const Profile = () => {
                           }}
                           sx={{ ml: 1 }}
                         >
-                          Remove
+                          {t('profile.remove')}
                         </Button>
                       )}
                     </Box>
@@ -1463,8 +1595,8 @@ const Profile = () => {
                           label={t('profile.idCardNumber')}
                           required
                           validation={{
-                            required: validationRules.required('ID Card Number is required'),
-                            maxLength: validationRules.maxLength(20, 'ID Card Number must not exceed 20 characters')
+                            required: validationRules.required(t('validation.idCardNumberRequired')),
+                            maxLength: validationRules.maxLength(20, t('validation.idCardNumberMaxLength'))
                           }}
                         />
                       </Grid>
@@ -1573,7 +1705,7 @@ const Profile = () => {
                 )}
 
             {/* Change Password Tab */}
-            {((user?.role === 'HR' && activeTab === 2) || (user?.role === 'ADMIN' && activeTab === 1) || (user?.role !== 'HR' && user?.role !== 'ADMIN' && activeTab === 3)) && (
+            {((user?.role === 'HR' && activeTab === 1) || (user?.role === 'ADMIN' && activeTab === 1) || (user?.role !== 'HR' && user?.role !== 'ADMIN' && activeTab === 3)) && (
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
                     <Alert severity="info" sx={{ mb: 2 }}>
@@ -1624,6 +1756,20 @@ const Profile = () => {
                       onClick={handleChangePassword}
                       disabled={passwordLoading || !passwordFormData.oldPassword || !passwordFormData.newPassword || passwordFormData.newPassword !== passwordFormData.confirmPassword}
                       startIcon={<Save />}
+                      sx={{
+                        borderRadius: 2,
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                        '&:hover': {
+                          background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                          boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                          transform: 'translateY(-2px)'
+                        },
+                        '&:disabled': {
+                          background: 'rgba(0, 0, 0, 0.12)',
+                          color: 'rgba(0, 0, 0, 0.26)'
+                        }
+                      }}
                     >
                       {passwordLoading ? t('profile.changingPassword') : t('profile.changePassword')}
                     </Button>
@@ -1633,15 +1779,33 @@ const Profile = () => {
               </Box>
               )}
             </DialogContent>
-            <DialogActions>
-              <Button onClick={handleCancel} startIcon={<Cancel />}>
-                Cancel
+            <DialogActions sx={{ p: 2.5, pt: 1 }}>
+              <Button 
+                onClick={handleCancel} 
+                startIcon={<Cancel />}
+                sx={{ borderRadius: 2 }}
+              >
+                {t('common.cancel')}
               </Button>
               <Button 
                 type="submit"
                 variant="contained" 
                 startIcon={<Save />}
                 disabled={loading}
+                sx={{
+                  borderRadius: 2,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                    transform: 'translateY(-2px)'
+                  },
+                  '&:disabled': {
+                    background: 'rgba(0, 0, 0, 0.12)',
+                    color: 'rgba(0, 0, 0, 0.26)'
+                  }
+                }}
               >
                 {loading ? t('profile.saving') : t('common.save')}
               </Button>
@@ -1652,14 +1816,50 @@ const Profile = () => {
 
       {/* Edit Company Dialog (for HR only) */}
       {user && user.role === 'HR' && (
-        <Dialog open={openCompanyDialog} onClose={handleCompanyCancel} maxWidth="md" fullWidth>
+        <Dialog 
+          open={openCompanyDialog} 
+          onClose={handleCompanyCancel} 
+          maxWidth="md" 
+          fullWidth
+          PaperProps={{
+            sx: {
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 3,
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '4px',
+                background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                opacity: 0.8
+              }
+            }
+          }}
+        >
           <FormProvider {...companyMethods}>
             <Box component="form" onSubmit={companyMethods.handleSubmit(onCompanySubmit)}>
-              <DialogTitle>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Edit sx={{ mr: 1 }} />
+              <DialogTitle
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  fontWeight: 700,
+                  fontSize: '1.5rem',
+                  pb: 2
+                }}
+              >
+                <Edit sx={{ mr: 1, color: '#667eea' }} />
                   {t('profile.editCompanyInformation')}
-                </Box>
               </DialogTitle>
               <DialogContent>
                 <Box sx={{ pt: 1 }}>
@@ -1669,6 +1869,7 @@ const Profile = () => {
                     sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
                     indicatorColor="primary"
                     textColor="primary"
+                    key={`company-tabs-${i18n.language}`}
                   >
                     <Tab label={t('profile.companyInfo')} />
                     <Tab label={t('profile.hrManagement')} />
@@ -1737,7 +1938,7 @@ const Profile = () => {
                         multiline
                         rows={3}
                         validation={{
-                          maxLength: validationRules.maxLength(500, 'Description must not exceed 500 characters')
+                          maxLength: validationRules.maxLength(500, t('profile.descriptionMaxLength'))
                         }}
                       />
                     </Grid>
@@ -1746,7 +1947,7 @@ const Profile = () => {
                         name="domain"
                         label={t('profile.domain')}
                         validation={{
-                          maxLength: validationRules.maxLength(100, 'Domain must not exceed 100 characters')
+                          maxLength: validationRules.maxLength(100, t('profile.domainMaxLength'))
                         }}
                       />
                     </Grid>
@@ -1890,6 +2091,20 @@ const Profile = () => {
                             onClick={handleAddHRUser}
                             disabled={hrLoading}
                             startIcon={<Save />}
+                            sx={{
+                              borderRadius: 2,
+                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                              boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                              '&:hover': {
+                                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                                transform: 'translateY(-2px)'
+                              },
+                              '&:disabled': {
+                                background: 'rgba(0, 0, 0, 0.12)',
+                                color: 'rgba(0, 0, 0, 0.26)'
+                              }
+                            }}
                           >
                             {hrLoading ? t('profile.adding') : t('profile.addHR')}
                           </Button>
@@ -1969,6 +2184,20 @@ const Profile = () => {
                               onClick={editingDepartment ? handleEditDepartment : handleAddDepartment}
                               disabled={departmentLoading}
                               startIcon={<Save />}
+                              sx={{
+                                borderRadius: 2,
+                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                                '&:hover': {
+                                  background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                                  boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                                  transform: 'translateY(-2px)'
+                                },
+                                '&:disabled': {
+                                  background: 'rgba(0, 0, 0, 0.12)',
+                                  color: 'rgba(0, 0, 0, 0.26)'
+                                }
+                              }}
                             >
                               {departmentLoading ? (editingDepartment ? t('profile.updating') : t('profile.adding')) : (editingDepartment ? t('profile.updateDepartment') : t('profile.addDepartment'))}
                             </Button>
@@ -2049,15 +2278,33 @@ const Profile = () => {
                   )}
                 </Box>
               </DialogContent>
-              <DialogActions>
-                <Button onClick={handleCompanyCancel} startIcon={<Cancel />}>
-                  Cancel
+              <DialogActions sx={{ p: 2.5, pt: 1 }}>
+                <Button 
+                  onClick={handleCompanyCancel} 
+                  startIcon={<Cancel />}
+                  sx={{ borderRadius: 2 }}
+                >
+                  {t('common.cancel')}
                 </Button>
                 <Button 
                   type="submit"
                   variant="contained"
                   startIcon={<Save />}
                   disabled={companyLoading}
+                  sx={{
+                    borderRadius: 2,
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    boxShadow: '0 4px 16px rgba(102, 126, 234, 0.3)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                      boxShadow: '0 6px 20px rgba(102, 126, 234, 0.4)',
+                      transform: 'translateY(-2px)'
+                    },
+                    '&:disabled': {
+                      background: 'rgba(0, 0, 0, 0.12)',
+                      color: 'rgba(0, 0, 0, 0.26)'
+                    }
+                  }}
                 >
                   {companyLoading ? t('common.saving') : t('common.saveChanges')}
                 </Button>
