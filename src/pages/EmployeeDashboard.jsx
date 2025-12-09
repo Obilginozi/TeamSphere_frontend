@@ -82,30 +82,35 @@ const EmployeeDashboard = () => {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
-        const [statsRes, historyRes, leavesRes, announcementsRes, birthdaysRes] = await Promise.all([
-          api.get('/time-logs/my-stats', {
-            params: {
-              startDate: startOfMonth.toISOString().split('T')[0],
-              endDate: endOfMonth.toISOString().split('T')[0]
-            }
-          }).catch((err) => {
-            // Only log if it's not an "employee not found" error
-            const errorMessage = err.response?.data?.message || err.message || ''
-            if (!errorMessage.includes('Employee record not found')) {
-              console.error('Failed to fetch time log stats:', err)
-            }
-            return { data: { data: {} } }
-          }),
-          api.get('/time-logs/my-history', {
-            params: { page: 0, size: 5 }
-          }).catch((err) => {
-            // Only log if it's not an "employee not found" error
-            const errorMessage = err.response?.data?.message || err.message || ''
-            if (!errorMessage.includes('Employee record not found')) {
-              console.error('Failed to fetch time log history:', err)
-            }
-            return { data: { data: { content: [] } } }
-          }),
+        // Fetch data sequentially to prevent rate limiting
+        // Critical stats data first, then secondary data
+        const statsRes = await api.get('/time-logs/my-stats', {
+          params: {
+            startDate: startOfMonth.toISOString().split('T')[0],
+            endDate: endOfMonth.toISOString().split('T')[0]
+          }
+        }).catch((err) => {
+          const errorMessage = err.response?.data?.message || err.message || ''
+          if (!errorMessage.includes('Employee record not found')) {
+            console.error('Failed to fetch time log stats:', err)
+          }
+          return { data: { data: {} } }
+        })
+        
+        const historyRes = await api.get('/time-logs/my-history', {
+          params: { page: 0, size: 5 }
+        }).catch((err) => {
+          const errorMessage = err.response?.data?.message || err.message || ''
+          if (!errorMessage.includes('Employee record not found')) {
+            console.error('Failed to fetch time log history:', err)
+          }
+          return { data: { data: { content: [] } } }
+        })
+        
+        // Small delay before secondary requests
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        const [leavesRes, announcementsRes, birthdaysRes] = await Promise.all([
           api.get('/leave-requests/my').catch(() => ({ data: { data: [] } })),
           api.get('/announcements/active').catch(() => ({ data: { data: [] } })),
           api.get('/employee/upcoming-birthdays', { params: { daysAhead: 30 } }).catch(() => ({ data: { data: [] } }))

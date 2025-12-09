@@ -45,8 +45,14 @@ const AdminDashboard = () => {
 
   const fetchMonitoringData = async () => {
     try {
-      const [overviewRes, logsRes, errorsRes, metricsRes, slowRes, endpointsRes] = await Promise.all([
-        api.get('/monitoring/overview').catch(() => ({ data: { data: {} } })),
+      // Fetch data sequentially to prevent rate limiting
+      // Critical overview first, then secondary data in batches
+      const overviewRes = await api.get('/monitoring/overview').catch(() => ({ data: { data: {} } }))
+      
+      // Small delay before secondary requests
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      const [logsRes, errorsRes, metricsRes, slowRes, endpointsRes] = await Promise.all([
         api.get(`/monitoring/logs/recent?hours=${timeRange}&limit=50`).catch(() => ({ data: { data: [] } })),
         api.get(`/monitoring/logs/errors?hours=${timeRange}&limit=50`).catch(() => ({ data: { data: [] } })),
         api.get(`/monitoring/metrics?hours=${timeRange}`).catch(() => ({ data: { data: [] } })),

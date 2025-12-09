@@ -80,13 +80,18 @@ const HRDashboard = () => {
         ? '/company-tickets/hr-tickets' 
         : '/company-tickets/my-tickets'
 
-      // Fetch all data in parallel
-      const [employeesRes, leaveRequestsRes, ticketsRes, timeLogsRes, departmentsRes] = await Promise.all([
-        api.get('/employee', { params: { page: 0, size: 1000, includeDeleted: false } }).catch(() => ({ data: { data: { content: [], totalElements: 0 } } })),
+      // Fetch data sequentially to prevent rate limiting
+      // Critical data first, then secondary data with small delays
+      const employeesRes = await api.get('/employee', { params: { page: 0, size: 1000, includeDeleted: false } }).catch(() => ({ data: { data: { content: [], totalElements: 0 } } }))
+      const departmentsRes = await api.get('/department').catch(() => ({ data: { data: [] } }))
+      
+      // Small delay before secondary requests
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      const [leaveRequestsRes, ticketsRes, timeLogsRes] = await Promise.all([
         api.get('/leave-requests').catch(() => ({ data: { data: [] } })),
         api.get(ticketsEndpoint).catch(() => ({ data: { data: [] } })),
-        api.get('/time-logs', { params: { page: 0, size: 1000 } }).catch(() => ({ data: { data: { content: [] } } })),
-        api.get('/department').catch(() => ({ data: { data: [] } }))
+        api.get('/time-logs', { params: { page: 0, size: 1000 } }).catch(() => ({ data: { data: { content: [] } } }))
       ])
 
       const employees = employeesRes.data.data?.content || employeesRes.data.data || []

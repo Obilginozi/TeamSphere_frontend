@@ -35,6 +35,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
 import api from '../services/api'
+import rsaEncryption from '../utils/rsaEncryption'
 
 const Settings = () => {
   const { t } = useTranslation()
@@ -200,9 +201,23 @@ const SecuritySettings = ({ showSnackbar }) => {
       return
     }
     try {
+      // Encrypt passwords before sending (if RSA encryption is available)
+      let encryptedOldPassword = passwords.current;
+      let encryptedNewPassword = passwords.new;
+      
+      if (rsaEncryption.isSupported()) {
+        try {
+          encryptedOldPassword = await rsaEncryption.encrypt(passwords.current);
+          encryptedNewPassword = await rsaEncryption.encrypt(passwords.new);
+        } catch (error) {
+          console.warn('Password encryption failed, sending in plaintext:', error);
+          // Continue with plaintext passwords if encryption fails
+        }
+      }
+      
       await api.post('/auth/change-password', {
-        oldPassword: passwords.current,
-        newPassword: passwords.new
+        oldPassword: encryptedOldPassword,
+        newPassword: encryptedNewPassword
       })
       showSnackbar(t('settings.passwordChangedSuccessfully'), 'success')
       setPasswords({ current: '', new: '', confirm: '' })

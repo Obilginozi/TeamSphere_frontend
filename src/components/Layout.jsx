@@ -79,6 +79,7 @@ const Layout = () => {
   const hasFetchedCompany = useRef(false)
   const lastFetchedCompanyId = useRef(null)
   const lastFetchedLogoUrl = useRef(null)
+  const fetchTimeoutRef = useRef(null)
 
   // Fetch logo as authenticated blob (defined at component level for reuse)
   const fetchLogoAsBlob = async (logoUrl) => {
@@ -183,14 +184,6 @@ const Layout = () => {
       }
     }
     
-    // If user exists but profilePictureUrl is missing, fetch full profile
-    if (user && !user.profilePictureUrl) {
-      fetchUserProfile()
-    } else if (user?.profilePictureUrl) {
-      // If user already has profilePictureUrl, just fetch the picture
-      fetchProfilePictureAsBlob(user.profilePictureUrl)
-    }
-    
     // Fetch company data with logo
     const fetchCompany = async () => {
       try {
@@ -250,15 +243,24 @@ const Layout = () => {
     
     // For admins: only fetch company if a company is selected
     // For HR/Employee: always fetch their company
-    if (user) {
-      if (user.role === 'ADMIN') {
-        if (selectedCompanyId) {
-          // Reset fetch flag if company changed
-          if (lastFetchedCompanyId.current !== selectedCompanyId) {
-            hasFetchedCompany.current = false
-          }
-          fetchCompany()
-        } else {
+    // Use debounce and staggered delays to prevent rate limiting
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current)
+    }
+    
+    fetchTimeoutRef.current = setTimeout(() => {
+      if (user) {
+        if (user.role === 'ADMIN') {
+          if (selectedCompanyId) {
+            // Reset fetch flag if company changed
+            if (lastFetchedCompanyId.current !== selectedCompanyId) {
+              hasFetchedCompany.current = false
+            }
+            // Fetch company data after a delay to avoid conflict with profile fetch
+            setTimeout(() => {
+              fetchCompany()
+            }, 100)
+          } else {
           // Clear company data if admin hasn't selected a company
           setCompanyData(null)
           hasFetchedCompany.current = false
@@ -288,16 +290,10 @@ const Layout = () => {
           }
           fetchAdminLogo()
         }
-      } else if (user.role === 'HR' || user.role === 'EMPLOYEE' || user.role === 'DEPARTMENT_MANAGER') {
-        // HR, Employee, and Department Manager users are always tied to a company
-        // Only fetch if we haven't fetched yet or if user changed
-        if (!hasFetchedCompany.current || lastFetchedCompanyId.current === null) {
-          if (process.env.NODE_ENV === 'development') {
-          }
-          fetchCompany()
-        }
       }
-    }
+      // Note: HR/Employee company fetching is handled in profile section above
+      }
+    }, 100) // Small delay for admin company switching
 
     // Listen for company update events
     const handleCompanyUpdate = () => {
@@ -341,6 +337,10 @@ const Layout = () => {
       return () => {
         window.removeEventListener('companyUpdated', handleCompanyUpdate)
         window.removeEventListener('profilePictureUpdated', handleProfilePictureUpdate)
+        // Clear timeout on unmount
+        if (fetchTimeoutRef.current) {
+          clearTimeout(fetchTimeoutRef.current)
+        }
         // Clean up object URLs on unmount
         setLogoObjectUrl(prevUrl => {
           if (prevUrl) {

@@ -26,6 +26,8 @@ export const FeatureFlagProvider = ({ children }) => {
 
       try {
         setLoading(true)
+        // Add a small delay to avoid rate limiting when loading with other requests
+        await new Promise(resolve => setTimeout(resolve, 200))
         const flags = await getMyCompanyFeatureFlags()
         setFeatureFlags(flags)
       } catch (error) {

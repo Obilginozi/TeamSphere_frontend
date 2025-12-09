@@ -2496,7 +2496,7 @@ const LeaveRequests = () => {
             InputLabelProps={{ shrink: true }}
             margin="normal"
             inputProps={{ min: newRequest.startDate }}
-            error={newRequest.startDate && newRequest.endDate && new Date(newRequest.endDate) < new Date(newRequest.startDate)}
+            error={!!(newRequest.startDate && newRequest.endDate && new Date(newRequest.endDate) < new Date(newRequest.startDate))}
             helperText={newRequest.startDate && newRequest.endDate && new Date(newRequest.endDate) < new Date(newRequest.startDate) ? t('leaveRequests.endDateMustBeAfterStartDate') : ''}
           />
 
@@ -2663,7 +2663,7 @@ const LeaveRequests = () => {
             InputLabelProps={{ shrink: true }}
             margin="normal"
             inputProps={{ min: editRequest.startDate }}
-            error={editRequest.startDate && editRequest.endDate && new Date(editRequest.endDate) < new Date(editRequest.startDate)}
+            error={!!(editRequest.startDate && editRequest.endDate && new Date(editRequest.endDate) < new Date(editRequest.startDate))}
             helperText={editRequest.startDate && editRequest.endDate && new Date(editRequest.endDate) < new Date(editRequest.startDate) ? t('leaveRequests.endDateMustBeAfterStartDate') : ''}
             sx={{
               '& .MuiOutlinedInput-root': {

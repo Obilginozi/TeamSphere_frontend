@@ -35,6 +35,7 @@ import api from '../services/api'
 import ValidatedTextField from '../components/ValidatedTextField'
 import ValidatedDatePicker from '../components/ValidatedDatePicker'
 import { fieldValidations, validationRules } from '../utils/validation'
+import rsaEncryption from '../utils/rsaEncryption'
 
 const Profile = () => {
   const { user, setUser, selectedCompanyId } = useAuth()
@@ -1018,9 +1019,23 @@ const Profile = () => {
       setPasswordLoading(true)
       setError(null)
 
+      // Encrypt passwords before sending (if RSA encryption is available)
+      let encryptedOldPassword = passwordFormData.oldPassword;
+      let encryptedNewPassword = passwordFormData.newPassword;
+      
+      if (rsaEncryption.isSupported()) {
+        try {
+          encryptedOldPassword = await rsaEncryption.encrypt(passwordFormData.oldPassword);
+          encryptedNewPassword = await rsaEncryption.encrypt(passwordFormData.newPassword);
+        } catch (error) {
+          console.warn('Password encryption failed, sending in plaintext:', error);
+          // Continue with plaintext passwords if encryption fails
+        }
+      }
+
       const response = await api.post('/auth/change-password', {
-        oldPassword: passwordFormData.oldPassword,
-        newPassword: passwordFormData.newPassword
+        oldPassword: encryptedOldPassword,
+        newPassword: encryptedNewPassword
       })
 
       setSuccess(t('profile.passwordChangedSuccessfully'))

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import jwtDecode from 'jwt-decode'
 import api from '../services/api'
 import { getErrorMessage } from '../utils/errorHandler'
+import rsaEncryption from '../utils/rsaEncryption'
 
 const AuthContext = createContext()
 
@@ -56,7 +57,18 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await api.post('/auth/login', { email, password })
+      // Encrypt password before sending (if RSA encryption is available)
+      let encryptedPassword = password;
+      if (rsaEncryption.isSupported()) {
+        try {
+          encryptedPassword = await rsaEncryption.encrypt(password);
+        } catch (error) {
+          console.warn('Password encryption failed, sending in plaintext:', error);
+          // Continue with plaintext password if encryption fails
+        }
+      }
+      
+      const response = await api.post('/auth/login', { email, password: encryptedPassword })
       const { token, ...userData } = response.data.data
       
       localStorage.setItem('token', token)
