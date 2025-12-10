@@ -75,11 +75,14 @@ const logErrorDetails = (error, context = '') => {
  * @param {string} defaultMessage - Default message to show if error can't be parsed
  * @param {string} context - Context for logging (optional)
  * @param {Function} t - Translation function (optional)
+ * @param {boolean} suppressLogging - If true, don't log error details (for handled errors)
  * @returns {string} User-friendly error message
  */
-export const getErrorMessage = (error, defaultMessage = 'An unexpected error occurred. Please try again.', context = '', t = null) => {
-  // Log detailed error information for developers
-  logErrorDetails(error, context || defaultMessage)
+export const getErrorMessage = (error, defaultMessage = 'An unexpected error occurred. Please try again.', context = '', t = null, suppressLogging = false) => {
+  // Log detailed error information for developers (unless suppressed)
+  if (!suppressLogging) {
+    logErrorDetails(error, context || defaultMessage)
+  }
   
   // Helper to get translated message or fallback to English
   const getTranslated = (key, fallback) => {

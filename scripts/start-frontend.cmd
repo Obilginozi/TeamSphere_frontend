@@ -16,6 +16,9 @@ where node >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Node.js is not installed or not in PATH
     echo Please install Node.js 18+ from: https://nodejs.org/
+    echo.
+    echo Press any key to exit...
+    pause >nul
     exit /b 1
 )
 
@@ -24,6 +27,9 @@ where npm >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] npm is not installed or not in PATH
     echo Please install Node.js (which includes npm) from: https://nodejs.org/
+    echo.
+    echo Press any key to exit...
+    pause >nul
     exit /b 1
 )
 
@@ -34,12 +40,18 @@ set "FRONTEND_DIR=%SCRIPT_DIR%.."
 cd /d "%FRONTEND_DIR%"
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Cannot navigate to frontend directory: %FRONTEND_DIR%
+    echo.
+    echo Press any key to exit...
+    pause >nul
     exit /b 1
 )
 
 REM Check if package.json exists
 if not exist "package.json" (
     echo [ERROR] package.json not found in %FRONTEND_DIR%
+    echo.
+    echo Press any key to exit...
+    pause >nul
     exit /b 1
 )
 
@@ -50,6 +62,9 @@ if not exist "node_modules" (
     npm install
     if %ERRORLEVEL% NEQ 0 (
         echo [ERROR] Failed to install dependencies
+        echo.
+        echo Press any key to exit...
+        pause >nul
         exit /b 1
     )
 )
@@ -86,6 +101,9 @@ if %ERRORLEVEL% NEQ 0 (
     echo.
     echo [ERROR] Failed to start frontend
     echo Please check the error messages above
+    echo.
+    echo Press any key to exit...
+    pause >nul
     exit /b 1
 )
 

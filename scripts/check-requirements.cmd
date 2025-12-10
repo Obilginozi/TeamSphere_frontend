@@ -164,9 +164,15 @@ if %ERRORS% GTR 0 (
     echo.
     echo For detailed error codes and resolutions, see:
     echo   TeamSphere_frontend\scripts\README.md
+    echo.
+    echo Press any key to exit...
+    pause >nul
     exit /b 1
 ) else if %WARNINGS% GTR 0 (
     echo Warnings detected. Please review them before proceeding.
+    echo.
+    echo Press any key to exit...
+    pause >nul
     exit /b 0
 ) else (
     echo All checks passed! You can start the frontend now.
@@ -176,6 +182,8 @@ if %ERRORS% GTR 0 (
     echo   2. Start frontend: cd TeamSphere_frontend ^&^& npm run dev
     echo   3. Access the application: http://localhost:%FRONTEND_PORT%
     echo.
+    echo Press any key to exit...
+    pause >nul
     exit /b 0
 )
 

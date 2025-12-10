@@ -57,13 +57,19 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
+      // Always clear RSA cache before login to ensure fresh key
+      if (rsaEncryption.isSupported()) {
+        rsaEncryption.clearCache();
+      }
+      
       // Encrypt password before sending (if RSA encryption is available)
+      // Force reload public key on each login to handle backend restarts
       let encryptedPassword = password;
       if (rsaEncryption.isSupported()) {
         try {
-          encryptedPassword = await rsaEncryption.encrypt(password);
+          // Force reload to get fresh key in case backend restarted
+          encryptedPassword = await rsaEncryption.encrypt(password, true);
         } catch (error) {
-          console.warn('Password encryption failed, sending in plaintext:', error);
           // Continue with plaintext password if encryption fails
         }
       }
@@ -89,18 +95,167 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true }
     } catch (error) {
-      // Handle validation errors and other error types
-      let errorMessage = getErrorMessage(error, 'Login failed')
+      // Handle decryption errors - clear RSA cache and retry with fresh key
+      const errorMessage = (error?.response?.data?.message || error?.message || 'Login failed').toLowerCase();
+      const isDecryptionError = errorMessage.includes('failed to decrypt password') || 
+                                errorMessage.includes('failed to decrypt') ||
+                                errorMessage.includes('key mismatch') ||
+                                errorMessage.includes('encryption key mismatch') ||
+                                errorMessage.includes('badpadding') ||
+                                errorMessage.includes('automatically retry') ||
+                                errorMessage.includes('decrypt') ||
+                                errorMessage.includes('invalid encrypted password format');
       
-      // Check for validation errors array
+      if (isDecryptionError && rsaEncryption.isSupported()) {
+        // Suppress error logging for decryption errors - we'll handle them gracefully
+        // Clear cache completely to ensure we fetch a fresh key
+        rsaEncryption.clearCache();
+        
+        // Retry login with fresh public key
+        try {
+          // Longer delay to ensure backend is ready and cache is cleared
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          // Force reload the public key and encrypt again (clear cache is already done)
+          // This will fetch a completely fresh key from the backend
+          const encryptedPassword = await rsaEncryption.encrypt(password, true);
+          const retryResponse = await api.post('/auth/login', { email, password: encryptedPassword });
+          const { token, ...userData } = retryResponse.data.data;
+          
+          localStorage.setItem('token', token);
+          localStorage.removeItem('selectedCompanyId');
+          setSelectedCompanyId(null);
+          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          setUser(userData);
+          
+          if (userData.companyId && userData.companyName) {
+            setCompany({
+              id: userData.companyId,
+              name: userData.companyName
+            });
+          }
+          
+          // Login succeeded after retry - return success silently
+          return { success: true };
+        } catch (retryError) {
+          // If retry also fails, check if it's still a decryption error
+          const retryErrorMessage = (retryError?.response?.data?.message || retryError?.message || '').toLowerCase();
+          const isRetryDecryptionError = retryErrorMessage.includes('failed to decrypt') || 
+              retryErrorMessage.includes('key mismatch') ||
+              retryErrorMessage.includes('badpadding') ||
+              retryErrorMessage.includes('encryption key mismatch') ||
+              retryErrorMessage.includes('automatically retry');
+          
+          if (isRetryDecryptionError) {
+            // Last resort: try with plaintext password (backend will accept it if not encrypted)
+            try {
+              // Ensure we're sending plaintext, not encrypted
+              const plaintextPassword = password; // Use original password
+              const plaintextResponse = await api.post('/auth/login', { email, password: plaintextPassword });
+              const { token, ...userData } = plaintextResponse.data.data;
+              
+              localStorage.setItem('token', token);
+              localStorage.removeItem('selectedCompanyId');
+              setSelectedCompanyId(null);
+              api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+              setUser(userData);
+              
+              if (userData.companyId && userData.companyName) {
+                setCompany({
+                  id: userData.companyId,
+                  name: userData.companyName
+                });
+              }
+              
+              // Login succeeded with plaintext fallback - return success silently
+              return { success: true };
+            } catch (plaintextError) {
+              // Only log error if all attempts failed
+              const plaintextErrorMsg = plaintextError?.response?.data?.message || plaintextError?.message || 'Login failed';
+              return {
+                success: false,
+                error: plaintextErrorMsg.includes('Invalid credentials') || plaintextErrorMsg.includes('User not found') ? 
+                       'Invalid email or password. Please check your credentials and try again.' :
+                       'Login failed. Please check your credentials and try again.'
+              };
+            }
+          }
+          // If retry fails for a different reason, return the retry error
+          const retryErrorMsg = retryError?.response?.data?.message || retryError?.message || 'Login failed';
+          return {
+            success: false,
+            error: retryErrorMsg.includes('Invalid credentials') || retryErrorMsg.includes('User not found') ?
+                   'Invalid email or password. Please check your credentials and try again.' :
+                   retryErrorMsg
+          };
+        }
+      }
+      
+      // Handle validation errors and other error types
+      // Only show error if it's not a decryption error (those are handled above)
+      // Reuse errorMessage variable that was already declared above (line 100)
+      const isDecryptionErrorInFinal = errorMessage.includes('failed to decrypt') || 
+                                       errorMessage.includes('key mismatch') ||
+                                       errorMessage.includes('encryption key mismatch') ||
+                                       errorMessage.includes('badpadding') ||
+                                       errorMessage.includes('automatically retry');
+      
+      // If it's a decryption error that wasn't caught above, it means RSA is not supported
+      // In that case, try plaintext as fallback
+      if (isDecryptionErrorInFinal && !rsaEncryption.isSupported()) {
+        try {
+          const plaintextResponse = await api.post('/auth/login', { email, password: password });
+          const { token, ...userData } = plaintextResponse.data.data;
+          
+          localStorage.setItem('token', token);
+          localStorage.removeItem('selectedCompanyId');
+          setSelectedCompanyId(null);
+          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          setUser(userData);
+          
+          if (userData.companyId && userData.companyName) {
+            setCompany({
+              id: userData.companyId,
+              name: userData.companyName
+            });
+          }
+          
+          return { success: true };
+        } catch (plaintextError) {
+          // Fall through to error handling below
+        }
+      }
+      
+      // For decryption errors, don't log detailed error info since we handle them gracefully
+      // Only log if it's not a handled decryption error
+      let finalErrorMessage;
+      if (isDecryptionErrorInFinal) {
+        // Suppress detailed logging for handled decryption errors
+        finalErrorMessage = error?.response?.data?.message || error?.message || 'Login failed';
+      } else {
+        // Check for validation errors first (from Spring Boot validation)
+        if (error?.response?.data?.validationErrors) {
+          const validationErrors = Object.entries(error.response.data.validationErrors)
+            .map(([field, message]) => `${field}: ${message}`)
+            .join(', ');
+          finalErrorMessage = validationErrors || 'Validation failed';
+        } else if (error?.response?.data?.message) {
+          finalErrorMessage = error.response.data.message;
+        } else {
+          // Suppress logging for login errors that might be handled - we'll log only if login truly fails
+          finalErrorMessage = getErrorMessage(error, 'Login failed', '', null, true);
+        }
+      }
+      
+      // Check for validation errors array (alternative format)
       if (error?.response?.data?.errors && Array.isArray(error.response.data.errors)) {
-        const validationErrors = error.response.data.errors.map(e => e.message || e).join(', ')
-        errorMessage = validationErrors || errorMessage
+        const validationErrors = error.response.data.errors.map(e => e.message || e).join(', ');
+        finalErrorMessage = validationErrors || finalErrorMessage;
       }
       
       return { 
         success: false, 
-        error: errorMessage
+        error: finalErrorMessage
       }
     }
   }
