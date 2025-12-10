@@ -32,20 +32,25 @@ echo 1. Checking Node.js installation...
 where node >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo    [ERROR] Node.js is not installed or not in PATH
-    echo    Please install Node.js 18+ from: https://nodejs.org/
+    echo    Please install Node.js 18+ from https://nodejs.org/
     set /a ERRORS+=1
 ) else (
-    for /f "tokens=*" %%i in ('node -v') do set NODE_VERSION=%%i
-    echo    [OK] Node.js version: %NODE_VERSION%
-    REM Basic version check (simplified)
-    echo %NODE_VERSION% | findstr /R "^v1[89]\." >nul
-    if %ERRORLEVEL% NEQ 0 (
-        echo %NODE_VERSION% | findstr /R "^v2[0-9]\." >nul
-        if %ERRORLEVEL% NEQ 0 (
-            echo    [ERROR] Node.js version %NODE_VERSION% may be too old. Node.js 18+ is required.
-            echo    Please upgrade Node.js from: https://nodejs.org/
-            set /a ERRORS+=1
+    for /f "tokens=*" %%i in ('node -v 2^>nul') do set "NODE_VERSION=%%i"
+    if defined NODE_VERSION (
+        echo    [OK] Node.js version: !NODE_VERSION!
+        REM Basic version check (simplified)
+        echo !NODE_VERSION! | findstr /R "^v1[89]\." >nul
+        if !ERRORLEVEL! NEQ 0 (
+            echo !NODE_VERSION! | findstr /R "^v2[0-9]\." >nul
+            if !ERRORLEVEL! NEQ 0 (
+                echo    [ERROR] Node.js version !NODE_VERSION! may be too old. Node.js 18+ is required.
+                echo    Please upgrade Node.js from https://nodejs.org/
+                set /a ERRORS+=1
+            )
         )
+    ) else (
+        echo    [WARNING] Node.js is installed but version could not be determined
+        set /a WARNINGS+=1
     )
 )
 echo.
@@ -58,20 +63,31 @@ if %ERRORLEVEL% NEQ 0 (
     echo    npm usually comes with Node.js. Please reinstall Node.js.
     set /a ERRORS+=1
 ) else (
-    for /f "tokens=*" %%i in ('npm -v') do set NPM_VERSION=%%i
-    echo    [OK] npm version: %NPM_VERSION%
+    for /f "tokens=*" %%i in ('npm -v 2^>nul') do set "NPM_VERSION=%%i"
+    if defined NPM_VERSION (
+        echo    [OK] npm version: !NPM_VERSION!
+    ) else (
+        echo    [WARNING] npm is installed but version could not be determined
+        set /a WARNINGS+=1
+    )
 )
 echo.
 
 REM 3. Check port availability (Frontend)
 echo 3. Checking frontend port availability (%FRONTEND_PORT%)...
-netstat -an | findstr ":%FRONTEND_PORT%" | findstr "LISTENING" >nul 2>&1
+netstat -ano 2>nul | findstr ":%FRONTEND_PORT%" | findstr "LISTENING" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     echo    [ERROR] Frontend port %FRONTEND_PORT% is already in use
     echo    Process ID(s) using port %FRONTEND_PORT%:
-    for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%FRONTEND_PORT%" ^| findstr "LISTENING"') do (
-        echo      PID: %%p
-        set "FRONTEND_PID=%%p"
+    netstat -ano 2>nul | findstr ":%FRONTEND_PORT%" | findstr "LISTENING" >"%TEMP%\port_%FRONTEND_PORT%.txt" 2>nul
+    if exist "%TEMP%\port_%FRONTEND_PORT%.txt" (
+        for /f "tokens=5" %%p in ('type "%TEMP%\port_%FRONTEND_PORT%.txt" 2^>nul') do (
+            if not "%%p"=="" (
+                echo      PID: %%p
+                set "FRONTEND_PID=%%p"
+            )
+        )
+        del "%TEMP%\port_%FRONTEND_PORT%.txt" >nul 2>&1
     )
     echo    Please stop the application using this port or change FRONTEND_PORT environment variable
     echo    To kill the process: taskkill /PID ^<PID^> /F
@@ -83,13 +99,19 @@ echo.
 
 REM 4. Check backend port availability (optional warning)
 echo 4. Checking backend port availability (%BACKEND_PORT%)...
-netstat -an | findstr ":%BACKEND_PORT%" | findstr "LISTENING" >nul 2>&1
+netstat -ano 2>nul | findstr ":%BACKEND_PORT%" | findstr "LISTENING" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     echo    [OK] Backend port %BACKEND_PORT% is in use (backend is running)
     echo    Process ID(s) using port %BACKEND_PORT%:
-    for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%BACKEND_PORT%" ^| findstr "LISTENING"') do (
-        echo      PID: %%p
-        set "BACKEND_PID=%%p"
+    netstat -ano 2>nul | findstr ":%BACKEND_PORT%" | findstr "LISTENING" >"%TEMP%\port_%BACKEND_PORT%.txt" 2>nul
+    if exist "%TEMP%\port_%BACKEND_PORT%.txt" (
+        for /f "tokens=5" %%p in ('type "%TEMP%\port_%BACKEND_PORT%.txt" 2^>nul') do (
+            if not "%%p"=="" (
+                echo      PID: %%p
+                set "BACKEND_PID=%%p"
+            )
+        )
+        del "%TEMP%\port_%BACKEND_PORT%.txt" >nul 2>&1
     )
 ) else (
     echo    [WARNING] Backend port %BACKEND_PORT% is not in use

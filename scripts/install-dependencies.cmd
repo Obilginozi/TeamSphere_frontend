@@ -37,7 +37,7 @@ REM Check if npm is installed
 where npm >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] npm is not installed or not in PATH
-    echo Please install Node.js (which includes npm) from: https://nodejs.org/
+    echo Please install Node.js (which includes npm) from https://nodejs.org/
     echo.
     echo Press any key to exit...
     pause >nul
@@ -49,9 +49,18 @@ echo This may take a few minutes...
 echo.
 
 REM Install dependencies
-npm install
+REM Redirect output to temp file to prevent batch from parsing npm's output (which may contain "from:")
+set "TEMP_OUTPUT=%TEMP%\npm_install_%RANDOM%.txt"
+npm install >"%TEMP_OUTPUT%" 2>&1
+set "INSTALL_RESULT=%ERRORLEVEL%"
 
-if %ERRORLEVEL% EQU 0 (
+REM Display the output
+type "%TEMP_OUTPUT%"
+
+REM Clean up temp file
+if exist "%TEMP_OUTPUT%" del "%TEMP_OUTPUT%" >nul 2>&1
+
+if !INSTALL_RESULT! EQU 0 (
     echo.
     echo [SUCCESS] Dependencies installed successfully!
     echo.
@@ -63,6 +72,12 @@ if %ERRORLEVEL% EQU 0 (
     echo.
     echo [ERROR] Failed to install dependencies
     echo Please check the error messages above
+    echo.
+    echo Common issues:
+    echo   - Check your internet connection
+    echo   - Verify package.json is valid
+    echo   - Try deleting node_modules and package-lock.json, then run again
+    echo   - Check npm version: npm -v
     echo.
     echo Press any key to exit...
     pause >nul

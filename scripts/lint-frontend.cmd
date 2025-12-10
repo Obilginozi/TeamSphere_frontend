@@ -15,7 +15,7 @@ REM Check if Node.js is installed
 where node >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Node.js is not installed or not in PATH
-    echo Please install Node.js 18+ from: https://nodejs.org/
+    echo Please install Node.js 18+ from https://nodejs.org/
     echo.
     echo Press any key to exit...
     pause >nul
@@ -26,7 +26,7 @@ REM Check if npm is installed
 where npm >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] npm is not installed or not in PATH
-    echo Please install Node.js (which includes npm) from: https://nodejs.org/
+    echo Please install Node.js (which includes npm) from https://nodejs.org/
     echo.
     echo Press any key to exit...
     pause >nul
