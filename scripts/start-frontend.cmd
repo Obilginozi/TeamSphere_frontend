@@ -13,7 +13,7 @@ echo.
 
 REM Check if Node.js is installed
 where node >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
+if errorlevel 1 (
     echo [ERROR] Node.js is not installed or not in PATH
     echo Please install Node.js 18+ from: https://nodejs.org/
     exit /b 1
@@ -21,9 +21,9 @@ if %ERRORLEVEL% NEQ 0 (
 
 REM Check if npm is installed
 where npm >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
+if errorlevel 1 (
     echo [ERROR] npm is not installed or not in PATH
-    echo Please install Node.js (which includes npm) from: https://nodejs.org/
+    echo Please install Node.js ^(which includes npm^) from: https://nodejs.org/
     exit /b 1
 )
 
@@ -32,7 +32,7 @@ set "SCRIPT_DIR=%~dp0"
 set "FRONTEND_DIR=%SCRIPT_DIR%.."
 
 cd /d "%FRONTEND_DIR%"
-if %ERRORLEVEL% NEQ 0 (
+if errorlevel 1 (
     echo [ERROR] Cannot navigate to frontend directory: %FRONTEND_DIR%
     exit /b 1
 )
@@ -47,8 +47,8 @@ REM Check if node_modules exists
 if not exist "node_modules" (
     echo [WARNING] node_modules directory not found
     echo Installing dependencies...
-    npm install
-    if %ERRORLEVEL% NEQ 0 (
+    call npm install
+    if errorlevel 1 (
         echo [ERROR] Failed to install dependencies
         exit /b 1
     )
@@ -69,7 +69,7 @@ if exist "%BACKEND_PORT_FILE%" (
     REM Fallback to environment variable or default
     if "%BACKEND_PORT%"=="" set "BACKEND_PORT=8080"
     set "VITE_BACKEND_PORT=%BACKEND_PORT%"
-    echo [INFO] Using backend port: %BACKEND_PORT% (default or from BACKEND_PORT env)
+    echo [INFO] Using backend port: %BACKEND_PORT% ^(default or from BACKEND_PORT env^)
 )
 
 echo Starting TeamSphere Frontend...
@@ -80,9 +80,11 @@ echo Press Ctrl+C to stop the server
 echo.
 
 REM Run development server
-npm run dev
+REM Note: npm run dev runs indefinitely, so this script will not exit until stopped
+call npm run dev
 
-if %ERRORLEVEL% NEQ 0 (
+REM This code will only execute if npm run dev fails to start
+if errorlevel 1 (
     echo.
     echo [ERROR] Failed to start frontend
     echo Please check the error messages above

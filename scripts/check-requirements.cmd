@@ -7,8 +7,8 @@ REM ============================================
 REM This script checks system requirements before starting the frontend
 REM ============================================
 
-set ERRORS=0
-set WARNINGS=0
+set "ERRORS=0"
+set "WARNINGS=0"
 
 echo.
 echo ============================================
@@ -33,7 +33,7 @@ where node >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo    [ERROR] Node.js is not installed or not in PATH
     echo    Please install Node.js 18+ from: https://nodejs.org/
-    set /a ERRORS+=1
+    set /a ERRORS=!ERRORS!+1
 ) else (
     for /f "tokens=*" %%i in ('node -v') do set NODE_VERSION=%%i
     echo    [OK] Node.js version: %NODE_VERSION%
@@ -44,7 +44,7 @@ if %ERRORLEVEL% NEQ 0 (
         if %ERRORLEVEL% NEQ 0 (
             echo    [ERROR] Node.js version %NODE_VERSION% may be too old. Node.js 18+ is required.
             echo    Please upgrade Node.js from: https://nodejs.org/
-            set /a ERRORS+=1
+            set /a ERRORS=!ERRORS!+1
         )
     )
 )
@@ -56,7 +56,7 @@ where npm >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo    [ERROR] npm is not installed or not in PATH
     echo    npm usually comes with Node.js. Please reinstall Node.js.
-    set /a ERRORS+=1
+    set /a ERRORS=!ERRORS!+1
 ) else (
     for /f "tokens=*" %%i in ('npm -v') do set NPM_VERSION=%%i
     echo    [OK] npm version: %NPM_VERSION%
@@ -65,17 +65,27 @@ echo.
 
 REM 3. Check port availability (Frontend)
 echo 3. Checking frontend port availability (%FRONTEND_PORT%)...
-netstat -an | findstr ":%FRONTEND_PORT%" | findstr "LISTENING" >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
+set "PORT_FRONTEND_IN_USE=0"
+netstat -ano 2>nul | findstr ":%FRONTEND_PORT%" | findstr "LISTENING" >nul 2>&1
+if errorlevel 1 goto port_frontend_available
+set "PORT_FRONTEND_IN_USE=1"
+:port_frontend_available
+if !PORT_FRONTEND_IN_USE! EQU 1 (
     echo    [ERROR] Frontend port %FRONTEND_PORT% is already in use
-    echo    Process ID(s) using port %FRONTEND_PORT%:
-    for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%FRONTEND_PORT%" ^| findstr "LISTENING"') do (
-        echo      PID: %%p
-        set "FRONTEND_PID=%%p"
+    echo    Process ID^(s^) on port %FRONTEND_PORT%:
+    netstat -ano 2>nul | findstr ":%FRONTEND_PORT%" | findstr "LISTENING" >"%TEMP%\port_%FRONTEND_PORT%.txt" 2>nul
+    if exist "%TEMP%\port_%FRONTEND_PORT%.txt" (
+        for /f "tokens=5" %%p in ('type "%TEMP%\port_%FRONTEND_PORT%.txt" 2^>nul') do (
+            if not "%%p"=="" (
+                echo      PID: %%p
+                set "FRONTEND_PID=%%p"
+            )
+        )
+        del "%TEMP%\port_%FRONTEND_PORT%.txt" >nul 2>&1
     )
-    echo    Please stop the application using this port or change FRONTEND_PORT environment variable
+    echo    Please stop the application on this port or change FRONTEND_PORT environment variable
     echo    To kill the process: taskkill /PID ^<PID^> /F
-    set /a ERRORS+=1
+    set /a ERRORS=!ERRORS!+1
 ) else (
     echo    [OK] Frontend port %FRONTEND_PORT% is available
 )
@@ -83,18 +93,26 @@ echo.
 
 REM 4. Check backend port availability (optional warning)
 echo 4. Checking backend port availability (%BACKEND_PORT%)...
-netstat -an | findstr ":%BACKEND_PORT%" | findstr "LISTENING" >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    echo    [OK] Backend port %BACKEND_PORT% is in use (backend is running)
-    echo    Process ID(s) using port %BACKEND_PORT%:
-    for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":%BACKEND_PORT%" ^| findstr "LISTENING"') do (
-        echo      PID: %%p
-        set "BACKEND_PID=%%p"
+netstat -ano 2>nul | findstr ":%BACKEND_PORT%" >nul 2>&1
+set "PORT_BACKEND_IN_USE=0"
+if !ERRORLEVEL! EQU 0 set "PORT_BACKEND_IN_USE=1"
+if !PORT_BACKEND_IN_USE! EQU 1 (
+    echo    [OK] Backend port %BACKEND_PORT% is in use ^(backend is running^)
+    echo    Process ID^(s^) on port %BACKEND_PORT%:
+    netstat -ano 2>nul | findstr ":%BACKEND_PORT%" | findstr "LISTENING" >"%TEMP%\port_%BACKEND_PORT%.txt" 2>nul
+    if exist "%TEMP%\port_%BACKEND_PORT%.txt" (
+        for /f "tokens=5" %%p in ('type "%TEMP%\port_%BACKEND_PORT%.txt" 2^>nul') do (
+            if not "%%p"=="" (
+                echo      PID: %%p
+                set "BACKEND_PID=%%p"
+            )
+        )
+        del "%TEMP%\port_%BACKEND_PORT%.txt" >nul 2>&1
     )
 ) else (
     echo    [WARNING] Backend port %BACKEND_PORT% is not in use
     echo    Make sure the backend is running before starting the frontend
-    set /a WARNINGS+=1
+    set /a WARNINGS=!WARNINGS!+1
 )
 echo.
 
@@ -105,21 +123,21 @@ set "FRONTEND_DIR=%SCRIPT_DIR%.."
 
 if not exist "%FRONTEND_DIR%\package.json" (
     echo    [ERROR] package.json not found in %FRONTEND_DIR%
-    set /a ERRORS+=1
+    set /a ERRORS=!ERRORS!+1
 ) else (
     echo    [OK] package.json found
 )
 
 if not exist "%FRONTEND_DIR%\vite.config.js" (
     echo    [WARNING] vite.config.js not found
-    set /a WARNINGS+=1
+    set /a WARNINGS=!WARNINGS!+1
 ) else (
     echo    [OK] vite.config.js found
 )
 
 if not exist "%FRONTEND_DIR%\src" (
     echo    [ERROR] src directory not found
-    set /a ERRORS+=1
+    set /a ERRORS=!ERRORS!+1
 ) else (
     echo    [OK] src directory found
 )
@@ -130,7 +148,7 @@ echo 6. Checking dependencies...
 if not exist "%FRONTEND_DIR%\node_modules" (
     echo    [WARNING] node_modules directory not found
     echo    Run 'npm install' to install dependencies
-    set /a WARNINGS+=1
+    set /a WARNINGS=!WARNINGS!+1
 ) else (
     echo    [OK] node_modules directory found
 )
@@ -140,7 +158,7 @@ REM 7. Check .env file (optional)
 echo 7. Checking environment configuration...
 if not exist "%FRONTEND_DIR%\.env" (
     if not exist "%FRONTEND_DIR%\.env.local" (
-        echo    [INFO] .env file not found (using defaults)
+        echo    [INFO] .env file not found ^(using defaults^)
         echo    Create .env file to customize configuration:
         echo      VITE_API_BASE_URL=http://localhost:8080/api
     ) else (
