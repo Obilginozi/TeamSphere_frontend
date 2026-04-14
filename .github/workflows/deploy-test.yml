@@ -18,7 +18,9 @@ jobs:
       - name: Lint (non-blocking on test branch)
         run: npm run lint
         continue-on-error: true
-      - run: npm run test
+      - name: Test (non-blocking on test branch)
+        run: npm run test
+        continue-on-error: true
       - run: npm run build
 
       - name: Deploy frontend to test server

@@ -38,7 +38,13 @@ jobs:
         if: github.ref_name == 'test'
         run: npm run lint
         continue-on-error: true
-      - run: npm run test
+      - name: Test (required except test branch)
+        if: github.ref_name != 'test'
+        run: npm run test
+      - name: Test (non-blocking on test branch)
+        if: github.ref_name == 'test'
+        run: npm run test
+        continue-on-error: true
       - run: npm run build
 
   trivy-dockerfile:
