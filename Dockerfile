@@ -2,6 +2,11 @@ FROM node:18-alpine as build
 
 WORKDIR /app
 
+ARG VITE_API_URL
+ARG VITE_ROUTER_BASENAME
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_ROUTER_BASENAME=${VITE_ROUTER_BASENAME}
+
 # Copy package files
 COPY package*.json ./
 

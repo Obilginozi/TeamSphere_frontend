@@ -86,6 +86,7 @@ const queryClient = new QueryClient({
 // Inner component that has access to LanguageContext
 const AppContent = () => {
   const { language } = useLanguage()
+  const routerBasename = import.meta.env.VITE_ROUTER_BASENAME || '/'
   
   // Update dayjs locale when language changes
   useEffect(() => {
@@ -97,6 +98,7 @@ const AppContent = () => {
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={adapterLocale}>
       <Router
+        basename={routerBasename === '/' ? undefined : routerBasename}
         future={{
           v7_startTransition: true,
           v7_relativeSplatPath: true,
