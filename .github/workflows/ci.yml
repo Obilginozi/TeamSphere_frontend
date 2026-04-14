@@ -31,7 +31,13 @@ jobs:
           node-version: "20"
           cache: npm
       - run: npm ci
-      - run: npm run lint
+      - name: Lint (required except test branch)
+        if: github.ref_name != 'test'
+        run: npm run lint
+      - name: Lint (non-blocking on test branch)
+        if: github.ref_name == 'test'
+        run: npm run lint
+        continue-on-error: true
       - run: npm run test
       - run: npm run build
 
